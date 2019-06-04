@@ -1,0 +1,245 @@
+|     oo    |
+|    oo  o  |
+|        o  |
+|        o  |
+|      o o  |
+|      ooo  |
+|ooooooooo  |
+|oooooooooo |
+
+
+How to detect ghost location?
+For each x offset (i.e the width of the piece), get the highest committed block
+in each column.
+
+We want offsets from the center for each orientation
+
+000
+000
+000
+
+0000
+00x0
+0xxx
+0000
+
+00x0
+00x0
+0xx0
+00x0
+
+// I-spawn
+00000
+00000
+0xxxx
+00000
+00000
+
+Offsets
+
+Need -2, -1, 0, 1, 2
+
+Just use 4 bits for offset (wastes 1 bit)
+0000 = 0
+0001 = 1
+0010 = -1
+0011 = 2
+0100 = -2
+
+8 bits total for (x, y) offset
+
+Each piece is a component of a center + 3 offsets
+0000 0000
+0000 0000
+0000 0000
+
+We can use an int (4 bytes = 32 bits = 8 bits * 4) to represent all the offsets
+Then use bitmasks to extract the offset value.
+
+NOTE: +y is down
+
+I-ZERO
+-1 0 = 0010 0000
+1 0 = 0001 0000
+2 0 = 0011 0000
+
+00100000 00010000 00110000 = 0x201030
+
+I-R
+0 -1 = 0000 0010
+0 1 = 0000 0001
+0 2 = 0000 0011
+
+0x20103
+
+I-TWO
+1 0
+-1 0
+-2 0
+
+0001 0000 0010 0100 0000 = 0x102040
+
+I-L
+0 -1
+0 -2
+0 1
+
+00000010 00000100 00000001
+
+Actually there are only 16 possible offsets, so I can just use one byte and
+then set one bit to correspond to one offset
+
+char offset_bits = 00000000
+
+J-ZERO
+-1 0 = 0010 0000
+1 0 = 0001 0000
+-1 -1 = 0010 0010
+
+0010 0000 0001 0000 0010 0010
+
+J-RIGHT
+0 1
+0 -1
+1 -1
+
+0000 0001 0000 0010 0001 0010
+
+J-TWO
+1 1
+1 0
+-1 0
+
+0001 0001 0010 0000 0001 0000
+
+J-LEFT
+-1 1
+0 1
+0 -1
+
+0010 0001 0000 0001 0000 0010 = 0x210102
+
+O-ZERO
+O-RIGHT
+O-TWO
+O-LEFT
+1 0
+0 1
+1 1
+0001 0000 0000 0001 0001 0001
+
+L-ZERO
+-1 0
+1 0
+1 -1
+
+0010 0000 0001 0000 0001 0010 = 0x201012
+
+L-RIGHT
+0 1
+1 1
+0 -1
+
+0000 0001 0001 0001 0000 0010 = 0x11102
+
+L-TWO
+-1 1
+-1 0
+1 0
+
+0010 0001 0010 0000 0001 0000 = 0x212010
+
+L-LEFT
+0 1
+-1 -1
+0 -1
+
+0000 0001 0010 0010 0000 0010 = 0x12202
+
+T-ZERO
+-1 0
+1 0
+0 -1
+
+0010 0000 0001 0000 0000 0010 = 0x201002
+
+T-RIGHT
+0 1
+1 0
+0 -1
+
+0000 0001 0001 0000 0000 0010 = 0x11002
+
+T-TWO
+0 1
+-1 0
+1 0
+
+0000 0001 0010 0000 0001 0000 = 0x12010
+
+T-LEFT
+0 1
+-1 0
+0 -1
+
+0000 0001 0010 0000 0000 0010 = 0x12002
+
+S-ZERO
+-1 0
+0 -1
+1 -1
+
+0010 0000 0000 0010 0001 0010 = 0x200212
+
+S-RIGHT
+1 1
+1 0
+0 -1
+
+0001 0001 0001 0000 0000 0010 = 0x111002
+
+S-TWO
+-1 1
+0 1
+1 0
+
+0010 0001 0000 0001 0001 0000 = 0x210110
+
+S-LEFT
+0 1
+-1 0
+-1 -1
+
+0000 0001 0010 0000 0010 0010 = 0x12022
+
+Z-ZERO
+1 0
+-1 -1
+0 -1
+
+0001 0000 0010 0010 0000 0010 = 0x102202
+
+Z-RIGHT
+0 1
+1 0
+1 -1
+
+0000 0001 0001 0000 0001 0010 = 0x11012
+
+Z-TWO
+0 1
+1 1
+-1 0
+
+0000 0001 0001 0001 0010 0000 = 0x11120
+
+Z-LEFT
+-1 1
+-1 0
+0 -1
+
+0010 0001 0010 0000 0000 0010 = 0x212002
+
+2019/06/01
+Rotation fucked for non I pieces
+Need to figure out efficient storage for processing vs rendering the board
