@@ -231,7 +231,7 @@ internal inline int is_board_xy_filled(int x, int y) {
     /* puts("FAILED HEIGHT CHECK"); */
     return 1;
   }
-  return commited_board.data[commited_board.height * y + x] != -1;
+  return commited_board.data[commited_board.width * y + x] != -1;
 }
 
 // __SYSTEM
@@ -246,8 +246,8 @@ void init_system() {
   commited_board.data = (int *) malloc(sizeof(int) * WIDTH * HEIGHT);
   for (int i = 0; i < board.height; i++) {
     for (int j = 0; j < board.width; j++) {
-      board.data[board.height * i + j] = -1;
-      commited_board.data[board.height * i + j] = -1;
+      board.data[board.width * i + j] = -1;
+      commited_board.data[board.width * i + j] = -1;
     }
   }
 }
@@ -312,7 +312,7 @@ void update() {
   // Clear the board for now
   for (int i = 0; i < board.height; i++) {
     for (int j = 0; j < board.width; j++) {
-      board.data[board.height * i + j] = -1;
+      board.data[board.width * i + j] = -1;
     }
   }
   get_ghost();
@@ -327,14 +327,14 @@ void update() {
   printf("cur_piece.x = %d\ncur_piece.y = %d\n", cur_piece.x, cur_piece.y);
   printf("ox_1: %d, ox_2: %d, ox_3: %d\noy_1: %d, oy_2: %d, oy_3: %d\n", ox_1, ox_2, ox_3, oy_1, oy_2, oy_3);
   printf("ghost_piece.x = %d\nghost_piece.y = %d\n", ghost_piece.x, ghost_piece.y);
-  board.data[board.height * cur_piece.y + cur_piece.x] = 1;
-  board.data[board.height * (cur_piece.y + oy_1) + (cur_piece.x + ox_1)] = 1;
-  board.data[board.height * (cur_piece.y + oy_2) + (cur_piece.x + ox_2)] = 1;
-  board.data[board.height * (cur_piece.y + oy_3) + (cur_piece.x + ox_3)] = 1;
-  board.data[board.height * ghost_piece.y + ghost_piece.x] = 2;
-  board.data[board.height * (ghost_piece.y + oy_1) + (ghost_piece.x + ox_1)] = 2;
-  board.data[board.height * (ghost_piece.y + oy_2) + (ghost_piece.x + ox_2)] = 2;
-  board.data[board.height * (ghost_piece.y + oy_3) + (ghost_piece.x + ox_3)] = 2;
+  board.data[board.width * cur_piece.y + cur_piece.x] = 1;
+  board.data[board.width * (cur_piece.y + oy_1) + (cur_piece.x + ox_1)] = 1;
+  board.data[board.width * (cur_piece.y + oy_2) + (cur_piece.x + ox_2)] = 1;
+  board.data[board.width * (cur_piece.y + oy_3) + (cur_piece.x + ox_3)] = 1;
+  board.data[board.width * ghost_piece.y + ghost_piece.x] = 2;
+  board.data[board.width * (ghost_piece.y + oy_1) + (ghost_piece.x + ox_1)] = 2;
+  board.data[board.width * (ghost_piece.y + oy_2) + (ghost_piece.x + ox_2)] = 2;
+  board.data[board.width * (ghost_piece.y + oy_3) + (ghost_piece.x + ox_3)] = 2;
 }
 
 // Commits piece to board

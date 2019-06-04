@@ -1,2 +1,2 @@
 all:
-	gcc main.c tengine.c -o ttest
+	gcc main.c tengine.c

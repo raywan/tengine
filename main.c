@@ -15,11 +15,11 @@
 void render_board(Board *b) {
   for (int i = 0; i < b->height; i++) {
     for (int j = 0; j < b->width; j++) {
-      if (b->data[b->height * i + j] == -1) {
+      if (b->data[b->width * i + j] == -1) {
         printf("0");
-      } else if (b->data[b->height * i + j] == 1) {
+      } else if (b->data[b->width * i + j] == 1) {
         printf("x");
-      } else if (b->data[b->height * i + j] == 2) {
+      } else if (b->data[b->width * i + j] == 2) {
         printf("g");
       }
     }
@@ -56,7 +56,6 @@ int main(int argc, char *argv[]) {
     update();
     render_board(b);
     printf("iteration: %u\n", iteration++);
-
   }
   return 0;
 }
