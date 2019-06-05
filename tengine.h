@@ -1,6 +1,10 @@
 #ifndef __TENGINE_H__
 #define __TENGINE_H__
 
+#include <stdint.h>
+
+#define TENGINE_DEBUG
+
 #define WIDTH 10
 #define HEIGHT 22
 
@@ -27,6 +31,12 @@ typedef enum PieceType {
   PT_L = 1 << 9,
 } PieceType;
 
+typedef enum RowClearType {
+  T_SPIN,
+  TETRIS,
+  // ...
+} RowClearType;
+
 typedef struct Piece {
   PieceType type;
   PieceOrientation orientation;
@@ -37,7 +47,24 @@ typedef struct Piece {
 typedef struct TState {
   int score;
   int combo;
-} State;
+
+  // TODO(ray): Maybe unify this data instead of keeping it in the board
+  uint32_t board_width;
+  uint32_t board_height;
+
+  Piece next_piece_buf[5];
+  Piece cur_piece;
+  Piece ghost_piece;
+  Piece held_piece;
+  char has_swapped;
+
+  // Board used to render. Combines data from committed_board, cur_piece and ghost_piece
+  // NOTE(ray): Semantically, we're treating row 22 in the array to be the bottom
+  // of the game board. Might be better to change this later.
+  Board board;
+  // Holds all commited pieces on the board
+  Board committed_board;
+} TState;
 
 // Movement
 void move_left();
@@ -52,14 +79,12 @@ void init_system();
 Board *get_board();
 // TODO(ray): Get rid of this
 Board *get_committed_board();
-Piece hold(); // Holds the current piece and swaps to held
+void hold(); // Holds the current piece and swaps to held
 Piece get_next_piece();
 Piece get_current_piece();
 void get_ghost(); // Get the location of the current piece if hard dropped
 void update(); // Updates the state of the game
 void commit(); // Commits piece to board
-void get_render_board();
 
-// TODO(ray): Scoring
 
 #endif

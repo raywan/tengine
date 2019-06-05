@@ -2,9 +2,7 @@
 #include "tengine.h"
 #include <time.h>
 
-#define DEBUG
-
-#if defined(DEBUG)
+#if defined(TENGINE_DEBUG)
 #include <stdio.h>
 #define ASSERT(expr) \
   if (expr) {} \
