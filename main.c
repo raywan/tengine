@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "tengine.h"
+#include <time.h>
 
 #define DEBUG
 
@@ -41,6 +42,7 @@ int main(int argc, char *argv[]) {
   unsigned int iteration = 0;
   init_system();
   Board *b = get_board();
+  Board *cb = get_committed_board();
   char c;
   int initial = 1;
   while (1) {
@@ -53,6 +55,8 @@ int main(int argc, char *argv[]) {
       rotate_right();
     } else if (c == 's') {
       move_down();
+    } else if (c == ' ') {
+      hard_drop();
     } else if (!initial) {
       continue;
     }
@@ -61,6 +65,8 @@ int main(int argc, char *argv[]) {
     puts("");
     update();
     render_board(b);
+    puts("");
+    render_board(cb);
     printf("iteration: %u\n", iteration++);
   }
   return 0;

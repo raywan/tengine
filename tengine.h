@@ -34,6 +34,11 @@ typedef struct Piece {
   unsigned int x, y;
 } Piece;
 
+typedef struct TState {
+  int score;
+  int combo;
+} State;
+
 // Movement
 void move_left();
 void move_right();
@@ -45,12 +50,15 @@ void rotate_right();
 // System
 void init_system();
 Board *get_board();
+// TODO(ray): Get rid of this
+Board *get_committed_board();
 Piece hold(); // Holds the current piece and swaps to held
 Piece get_next_piece();
 Piece get_current_piece();
 void get_ghost(); // Get the location of the current piece if hard dropped
 void update(); // Updates the state of the game
 void commit(); // Commits piece to board
+void get_render_board();
 
 // TODO(ray): Scoring
 

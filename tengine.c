@@ -48,8 +48,10 @@ _a > _b ? _a : _b; })
 
 internal Piece cur_piece;
 internal Piece ghost_piece;
-internal Board commited_board;
+internal Board committed_board;
 internal Board board;
+internal Board render_board;
+
 internal int kick_test_table[40][2] = {
   {0,0}, {-1,0}, {-1,1},  {0,-2}, {-1,-2}, // 0 -> R
   {0,0}, {1,0},  {1,-1},  {0,2},  {1,2},   // R -> 0
@@ -90,6 +92,23 @@ internal int i_kick_test_table[40][2] = {
 #endif
 
 // __INTERNAL
+internal void set_board_data(Board *b, int x, int y, int i) {
+  b->data[b->width * y + x] = i;
+}
+
+internal void set_piece(Board *b, Piece p, int i) {
+  int raw_offsets = get_raw_offsets(p.type, p.orientation);
+  int ox_1 = offset_code_get_int_value(OFFSET_1_X_CODE(raw_offsets));
+  int ox_2 = offset_code_get_int_value(OFFSET_2_X_CODE(raw_offsets));
+  int ox_3 = offset_code_get_int_value(OFFSET_3_X_CODE(raw_offsets));
+  int oy_1 = offset_code_get_int_value(OFFSET_1_Y_CODE(raw_offsets));
+  int oy_2 = offset_code_get_int_value(OFFSET_2_Y_CODE(raw_offsets));
+  int oy_3 = offset_code_get_int_value(OFFSET_3_Y_CODE(raw_offsets));
+  set_board_data(b, p.x, p.y, i);
+  set_board_data(b, p.x + ox_1, p.y + oy_1, i);
+  set_board_data(b, p.x + ox_2, p.y + oy_2, i);
+  set_board_data(b, p.x + ox_3, p.y + oy_3, i);
+}
 
 // Returns bit representation of the offsets
 internal int get_raw_offsets(PieceType type, PieceOrientation orientation) {
@@ -198,7 +217,7 @@ internal inline int offset_code_get_int_value(int code) {
 }
 
 internal inline int get_min_x_offset() {
-	int offsets = get_raw_offsets(cur_piece.type, cur_piece.orientation);
+  int offsets = get_raw_offsets(cur_piece.type, cur_piece.orientation);
   int o_1 = offset_code_get_int_value(OFFSET_1_HEX(offsets) & OFFSET_X_MASK);
   int o_2 = offset_code_get_int_value(OFFSET_2_HEX(offsets) & OFFSET_X_MASK);
   int o_3 = offset_code_get_int_value(OFFSET_3_HEX(offsets) & OFFSET_X_MASK);
@@ -206,7 +225,7 @@ internal inline int get_min_x_offset() {
 }
 
 internal inline int get_max_x_offset() {
-	int offsets = get_raw_offsets(cur_piece.type, cur_piece.orientation);
+  int offsets = get_raw_offsets(cur_piece.type, cur_piece.orientation);
   int o_1 = offset_code_get_int_value(OFFSET_1_HEX(offsets) & OFFSET_X_MASK);
   int o_2 = offset_code_get_int_value(OFFSET_2_HEX(offsets) & OFFSET_X_MASK);
   int o_3 = offset_code_get_int_value(OFFSET_3_HEX(offsets) & OFFSET_X_MASK);
@@ -214,7 +233,7 @@ internal inline int get_max_x_offset() {
 }
 
 internal inline int get_min_y_offset() {
-	int offsets = get_raw_offsets(cur_piece.type, cur_piece.orientation);
+  int offsets = get_raw_offsets(cur_piece.type, cur_piece.orientation);
   int o_1 = OFFSET_1_HEX(offsets) & OFFSET_Y_MASK;
   int o_2 = OFFSET_2_HEX(offsets) & OFFSET_Y_MASK;
   int o_3 = OFFSET_3_HEX(offsets) & OFFSET_Y_MASK;
@@ -222,7 +241,7 @@ internal inline int get_min_y_offset() {
 }
 
 internal inline int get_max_y_offset() {
-	int offsets = get_raw_offsets(cur_piece.type, cur_piece.orientation);
+  int offsets = get_raw_offsets(cur_piece.type, cur_piece.orientation);
   int o_1 = offset_code_get_int_value(OFFSET_1_HEX(offsets) & OFFSET_Y_MASK);
   int o_2 = offset_code_get_int_value(OFFSET_2_HEX(offsets) & OFFSET_Y_MASK);
   int o_3 = offset_code_get_int_value(OFFSET_3_HEX(offsets) & OFFSET_Y_MASK);
@@ -232,36 +251,41 @@ internal inline int get_max_y_offset() {
 internal inline int is_board_xy_filled(int x, int y) {
   // Implicitly define that trying to go out of bounds is hitting a filled section
   /* printf("is_board_xy_filled(x = %d, y = %d)\n", x, y); */
-  if (x < 0 || x >= commited_board.width) {
+  if (x < 0 || x >= committed_board.width) {
     /* puts("FAILED WIDTH CHECK"); */
     return 1;
-  } else if (y < 0 || y >= commited_board.height) {
+  } else if (y < 0 || y >= committed_board.height) {
     /* puts("FAILED HEIGHT CHECK"); */
     return 1;
   }
-  return commited_board.data[commited_board.width * y + x] != -1;
+  return committed_board.data[committed_board.width * y + x] != -1;
 }
 
 // __SYSTEM
 
 void init_system() {
+  srand(69);
   cur_piece = get_next_piece();
   board.width = WIDTH;
   board.height = HEIGHT;
   board.data = (int *) malloc(sizeof(int) * WIDTH * HEIGHT);
-  commited_board.width = WIDTH;
-  commited_board.height = HEIGHT;
-  commited_board.data = (int *) malloc(sizeof(int) * WIDTH * HEIGHT);
+  committed_board.width = WIDTH;
+  committed_board.height = HEIGHT;
+  committed_board.data = (int *) malloc(sizeof(int) * WIDTH * HEIGHT);
   for (int i = 0; i < board.height; i++) {
     for (int j = 0; j < board.width; j++) {
       board.data[board.width * i + j] = -1;
-      commited_board.data[board.width * i + j] = -1;
+      committed_board.data[board.width * i + j] = -1;
     }
   }
 }
 
 Board *get_board() {
   return &board;
+}
+
+Board *get_committed_board() {
+  return &committed_board;
 }
 
 // Holds the current piece and swaps to held
@@ -272,7 +296,7 @@ Piece hold() {
 
 Piece get_next_piece() {
   Piece result;
-  result.type = PT_Z;
+  result.type = 1 << (int) (((double) rand()/RAND_MAX) * (9 - 3) + 3);
   result.orientation = PO_ZERO;
   result.x = 5;
   result.y = 5;
@@ -296,6 +320,10 @@ void get_ghost() {
 
   int ghost_y;
   for (int i = 0; i < HEIGHT - cur_piece.y; i++) {
+    if (is_board_xy_filled(cur_piece.x, cur_piece.y + i)) {
+      break;
+    }
+
     if (oy_1 >= 0 && is_board_xy_filled(cur_piece.x + ox_1, cur_piece.y + i + oy_1)) {
       break;
     }
@@ -325,7 +353,7 @@ void update() {
   }
   get_ghost();
   /* move_down(); */
-	int raw_offsets = get_raw_offsets(cur_piece.type, cur_piece.orientation);
+  int raw_offsets = get_raw_offsets(cur_piece.type, cur_piece.orientation);
   int ox_1 = offset_code_get_int_value(OFFSET_1_X_CODE(raw_offsets));
   int ox_2 = offset_code_get_int_value(OFFSET_2_X_CODE(raw_offsets));
   int ox_3 = offset_code_get_int_value(OFFSET_3_X_CODE(raw_offsets));
@@ -335,26 +363,25 @@ void update() {
   printf("cur_piece.x = %d\ncur_piece.y = %d\n", cur_piece.x, cur_piece.y);
   printf("ox_1: %d, ox_2: %d, ox_3: %d\noy_1: %d, oy_2: %d, oy_3: %d\n", ox_1, ox_2, ox_3, oy_1, oy_2, oy_3);
   printf("ghost_piece.x = %d\nghost_piece.y = %d\n", ghost_piece.x, ghost_piece.y);
-  board.data[board.width * cur_piece.y + cur_piece.x] = 1;
-  board.data[board.width * (cur_piece.y + oy_1) + (cur_piece.x + ox_1)] = 1;
-  board.data[board.width * (cur_piece.y + oy_2) + (cur_piece.x + ox_2)] = 1;
-  board.data[board.width * (cur_piece.y + oy_3) + (cur_piece.x + ox_3)] = 1;
-  board.data[board.width * ghost_piece.y + ghost_piece.x] = 2;
-  board.data[board.width * (ghost_piece.y + oy_1) + (ghost_piece.x + ox_1)] = 2;
-  board.data[board.width * (ghost_piece.y + oy_2) + (ghost_piece.x + ox_2)] = 2;
-  board.data[board.width * (ghost_piece.y + oy_3) + (ghost_piece.x + ox_3)] = 2;
+  // Copy the commited_board to the board
+  memcpy(board.data, committed_board.data, sizeof(int) * WIDTH * HEIGHT);
+  // Set the ghost
+  set_piece(&board, ghost_piece, 2);
+  // Set the piece
+  set_piece(&board, cur_piece, 1);
 }
 
 // Commits piece to board
 void commit() {
-  memcpy(commited_board.data, board.data, sizeof(int) * WIDTH * HEIGHT);
+  set_piece(&committed_board, cur_piece, 1);
+  cur_piece = get_next_piece();
 }
 
 // __MOVEMENT
 
 void move_left() {
   // Check all negative x offsets
-	int offsets = get_raw_offsets(cur_piece.type, cur_piece.orientation);
+  int offsets = get_raw_offsets(cur_piece.type, cur_piece.orientation);
   int ox_1 = offset_code_get_int_value(OFFSET_1_X_CODE(offsets));
   int ox_2 = offset_code_get_int_value(OFFSET_2_X_CODE(offsets));
   int ox_3 = offset_code_get_int_value(OFFSET_3_X_CODE(offsets));
@@ -385,7 +412,7 @@ void move_left() {
 
 void move_right() {
   // Check all positive x offsets
-	int offsets = get_raw_offsets(cur_piece.type, cur_piece.orientation);
+  int offsets = get_raw_offsets(cur_piece.type, cur_piece.orientation);
   int ox_1 = offset_code_get_int_value(OFFSET_1_X_CODE(offsets));
   int ox_2 = offset_code_get_int_value(OFFSET_2_X_CODE(offsets));
   int ox_3 = offset_code_get_int_value(OFFSET_3_X_CODE(offsets));
@@ -416,7 +443,7 @@ void move_right() {
 
 // Increase gravity
 void move_down() {
-	int offsets = get_raw_offsets(cur_piece.type, cur_piece.orientation);
+  int offsets = get_raw_offsets(cur_piece.type, cur_piece.orientation);
   int ox_1 = offset_code_get_int_value(OFFSET_1_X_CODE(offsets));
   int ox_2 = offset_code_get_int_value(OFFSET_2_X_CODE(offsets));
   int ox_3 = offset_code_get_int_value(OFFSET_3_X_CODE(offsets));
@@ -441,12 +468,18 @@ void move_down() {
 }
 
 // Sets current position to ghost position
-void hard_drop();
+void hard_drop() {
+  // Set the current piece's position to be the ghost position
+  cur_piece.x = ghost_piece.x;
+  cur_piece.y = ghost_piece.y;
+  // Commit the piece to the board
+  commit();
+}
 
 // Try to rotate, mutates the position
 internal void kick_test(PieceOrientation from_ori, PieceOrientation to_ori) {
 
-	int offsets = get_raw_offsets(cur_piece.type, to_ori);
+  int offsets = get_raw_offsets(cur_piece.type, to_ori);
   int ox_1 = offset_code_get_int_value(OFFSET_1_X_CODE(offsets));
   int ox_2 = offset_code_get_int_value(OFFSET_2_X_CODE(offsets));
   int ox_3 = offset_code_get_int_value(OFFSET_3_X_CODE(offsets));
