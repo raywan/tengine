@@ -27,7 +27,13 @@ void render_board(Board *b) {
   }
 }
 
-
+void clear_terminal() {
+#if defined(_WIN32)
+  system("cls");
+#else
+  printf("\e[1;1H\e[2J");
+#endif
+}
 
 int main(int argc, char *argv[]) {
   // ASSERT(1 == 0);
@@ -51,7 +57,7 @@ int main(int argc, char *argv[]) {
       continue;
     }
     initial = 0;
-    printf("\e[1;1H\e[2J");
+    clear_terminal();
     puts("");
     update();
     render_board(b);

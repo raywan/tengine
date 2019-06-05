@@ -25,17 +25,25 @@
 #define OFFSET_3_Y_CODE(raw_offsets) (OFFSET_3_HEX(raw_offsets) & OFFSET_Y_MASK)
 
 #if !defined(MIN)
+#if defined(_WIN32)
+#define MIN(a,b) ((a) > (b) ? (b) : (a))
+#else
 #define MIN(a,b) \
   ({ __typeof__ (a) _a = (a); \
     __typeof__ (b) _b = (b); \
     _a > _b ? _b : _a; })
 #endif
+#endif
 
 #if !defined(MAX)
+#if defined(_WIN32)
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+#else
 #define MAX(a,b) \
   ({ __typeof__ (a) _a = (a); \
     __typeof__ (b) _b = (b); \
 _a > _b ? _a : _b; })
+#endif
 #endif
 
 internal Piece cur_piece;
