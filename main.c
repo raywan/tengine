@@ -12,18 +12,21 @@
 #endif
 
 void render_board(Board *b) {
+  puts("------------"); // Board width + 2 for border
   for (int i = 0; i < b->height; i++) {
+    printf("|"); // Left side border
     for (int j = 0; j < b->width; j++) {
       if (b->data[b->width * i + j] == -1) {
-        printf("0");
+        printf(" ");
       } else if (b->data[b->width * i + j] == 1) {
         printf("x");
       } else if (b->data[b->width * i + j] == 2) {
         printf("g");
       }
     }
-    puts("");
+    puts("|"); // Right side border
   }
+  puts("------------"); // Board width + 2 for border
 }
 
 void clear_terminal() {
@@ -55,6 +58,8 @@ int main(int argc, char *argv[]) {
       move_down();
     } else if (c == ' ') {
       hard_drop();
+    } else if (c == 'q') {
+      hold();
     } else if (!initial) {
       continue;
     }

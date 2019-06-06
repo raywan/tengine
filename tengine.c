@@ -254,6 +254,8 @@ internal void set_piece(Board *b, Piece p, int i) {
 
 void init_system() {
   srand(69);
+  t_state.has_swapped = 0;
+  t_state.is_initial_swap = 1;
   t_state.cur_piece = get_next_piece();
   t_state.board.width = WIDTH;
   t_state.board.height = HEIGHT;
@@ -279,7 +281,12 @@ Board *get_committed_board() {
 
 // Holds the current piece and swaps to held
 void hold() {
-  if (!t_state.has_swapped) {
+  if (t_state.is_initial_swap) {
+    t_state.held_piece = t_state.cur_piece;
+    t_state.cur_piece = get_next_piece();
+    t_state.has_swapped = 1;
+    t_state.is_initial_swap = 0;
+  } else if (!t_state.has_swapped) {
     Piece temp = t_state.held_piece;
     t_state.held_piece = t_state.cur_piece;
     t_state.cur_piece = temp;
@@ -291,6 +298,7 @@ void hold() {
 
 Piece get_next_piece() {
   Piece result;
+  // TODO(ray): This random generation is temporary.
   result.type = 1 << (int) (((double) rand()/RAND_MAX) * (9 - 3) + 3);
   result.orientation = PO_ZERO;
   result.x = DEFAULT_SPAWN_X;
@@ -315,20 +323,12 @@ void get_ghost() {
 
   int ghost_y;
   // TODO(ray): Check starting from the bottom instead. May lead to earlier break
+  // Reverse in logic means keep moving up until there are no collisions.
   for (int i = 0; i < HEIGHT - t_state.cur_piece.y; i++) {
-    if (is_board_xy_filled(t_state.cur_piece.x, t_state.cur_piece.y + i)) {
-      break;
-    }
-
-    if (oy_1 >= 0 && is_board_xy_filled(t_state.cur_piece.x + ox_1, t_state.cur_piece.y + i + oy_1)) {
-      break;
-    }
-
-    if (oy_2 >= 0 && is_board_xy_filled(t_state.cur_piece.x + ox_2, t_state.cur_piece.y + i + oy_2)) {
-      break;
-    }
-
-    if (oy_3 >= 0 && is_board_xy_filled(t_state.cur_piece.x + ox_3, t_state.cur_piece.y + i + oy_3)) {
+    if (is_board_xy_filled(t_state.cur_piece.x, t_state.cur_piece.y + i) ||
+        is_board_xy_filled(t_state.cur_piece.x + ox_1, t_state.cur_piece.y + i + oy_1) ||
+        is_board_xy_filled(t_state.cur_piece.x + ox_2, t_state.cur_piece.y + i + oy_2) ||
+        is_board_xy_filled(t_state.cur_piece.x + ox_3, t_state.cur_piece.y + i + oy_3)) {
       break;
     }
     ghost_y = t_state.cur_piece.y + i;
@@ -359,6 +359,7 @@ void update() {
   printf("t_state.cur_piece.x = %d\ncur_piece.y = %d\n", t_state.cur_piece.x, t_state.cur_piece.y);
   printf("ox_1: %d, ox_2: %d, ox_3: %d\noy_1: %d, oy_2: %d, oy_3: %d\n", ox_1, ox_2, ox_3, oy_1, oy_2, oy_3);
   printf("ghost_piece.x = %d\nghost_piece.y = %d\n", t_state.ghost_piece.x, t_state.ghost_piece.y);
+  printf("held_piece type %d\n", t_state.held_piece.type);
   // Copy the commited_board to the board
   memcpy(t_state.board.data, t_state.committed_board.data, sizeof(int) * WIDTH * HEIGHT);
   // Set the ghost
@@ -376,28 +377,39 @@ void commit() {
   // Reset swap state
   t_state.has_swapped = 0;
 
-  // 1. Check if there are any filled rows
-  // 2. Check rows bottom up
-  // 3. Only continue checking next row up if the previous one has been cleared
-  // 4. Record the number of rows cleared
+  // 1. Check bottom up if there are any filled rows
+  // 2. Mark filled rows
+  // 3. Compact from the top down
   uint8_t num_rows_filled = 0;
-  for (int i = t_state.committed_board.height; i >= 0; i--) {
-    char row_filled = 1;
+  // In normal Tetris, At most 4 rows can be cleared at once
+  uint8_t filled_row_markers[4] = { 0, 0, 0, 0 };
+  for (int i = t_state.committed_board.height-1; i >= 0; i--) {
+    char is_row_filled = 1;
+    // Check if the row has been filled
     for (int j = 0; j < t_state.committed_board.width; j++) {
-      row_filled &= t_state.committed_board.data[t_state.committed_board.width * i + j] != -1;
+      is_row_filled &= t_state.committed_board.data[t_state.committed_board.width * i + j] != -1;
     }
-    if (!row_filled) break;
-    ++num_rows_filled;
+    if (is_row_filled) {
+      // Clear the row from the board
+      for (int j = 0; j < t_state.committed_board.width; j++) {
+        t_state.committed_board.data[t_state.committed_board.width * i + j] = -1;
+      }
+      // Mark the row for later
+      filled_row_markers[num_rows_filled++] = i;
+    }
   }
 
-  // 5. Clear filled rows from the committed board if any
   if (num_rows_filled > 0) {
-    for (int i = t_state.board.height; i >= 0; i--) {
-      for (int j = 0; j < t_state.board.width; j++) {
-        if (i - num_rows_filled >= 0) {
-          t_state.committed_board.data[t_state.committed_board.width * i + j] = t_state.committed_board.data[t_state.committed_board.width * (i - num_rows_filled) + j];
-        } else {
-          t_state.committed_board.data[t_state.committed_board.width * i + j] = -1;
+    // Compact starting from the top down
+    for (int i = num_rows_filled-1; i >= 0; i--) {
+      // Start from the cleared row and start moving stuff down
+      for (int j = filled_row_markers[i]; j >= 0; j--) {
+        for (int k = 0; k < t_state.board.width; k++) {
+          if (j - 1 >= 0) {
+            t_state.committed_board.data[t_state.committed_board.width * j + k] = t_state.committed_board.data[t_state.committed_board.width * (j - 1) + k];
+          } else {
+            t_state.committed_board.data[t_state.committed_board.width * j + k] = -1;
+          }
         }
       }
     }
