@@ -33,9 +33,17 @@ typedef enum PieceType {
 
 // TODO(ray): Complete this enumeration
 typedef enum RowClearType {
-  T_SPIN,
-  TETRIS,
-  // ...
+  RCT_SINGLE,
+  RCT_DOUBLE,
+  RCT_TRIPLE,
+  RCT_TETRIS,
+  RCT_T_SPIN_MINI,
+  RCT_T_SPIN,
+  RCT_T_SPIN_SINGLE,
+  RCT_T_SPIN_MINI_SINGLE,
+  RCT_T_SPIN_DOUBLE,
+  RCT_T_SPIN_MINI_DOUBLE,
+  RCT_T_SPIN_TRIPLE,
 } RowClearType;
 
 typedef struct Piece {

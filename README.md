@@ -13,7 +13,8 @@
 
 [Super Rotation System (SRS)](http://harddrop.com/wiki/SRS)
 
-[T-Spin](https://tetris.wiki/T-Spin)
+[T-Spin](http://harddrop.com/wiki/T-Spin)
 
 [Line Clear](https://tetris.wiki/Line_clear)
 
+[Combo](http://harddrop.com/wiki/Combo)
