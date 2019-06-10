@@ -32,18 +32,18 @@ typedef enum PieceType {
 } PieceType;
 
 // TODO(ray): Complete this enumeration
-typedef enum RowClearType {
-  RCT_SINGLE,
-  RCT_DOUBLE,
-  RCT_TRIPLE,
-  RCT_TETRIS,
-  RCT_T_SPIN_MINI,
-  RCT_T_SPIN,
-  RCT_T_SPIN_SINGLE,
-  RCT_T_SPIN_MINI_SINGLE,
-  RCT_T_SPIN_DOUBLE,
-  RCT_T_SPIN_MINI_DOUBLE,
-  RCT_T_SPIN_TRIPLE,
+typedef enum LineClearType {
+  LCT_SINGLE,
+  LCT_DOUBLE,
+  LCT_TRIPLE,
+  LCT_TETRIS,
+  LCT_T_SPIN_MINI,
+  LCT_T_SPIN,
+  LCT_T_SPIN_SINGLE,
+  LCT_T_SPIN_MINI_SINGLE,
+  LCT_T_SPIN_DOUBLE,
+  LCT_T_SPIN_MINI_DOUBLE,
+  LCT_T_SPIN_TRIPLE,
 } RowClearType;
 
 typedef struct Piece {
@@ -56,6 +56,11 @@ typedef struct Piece {
 typedef struct TState {
   int score;
   int combo;
+  // When lines cleared reaches current level times 10, increase level by 1
+  uint32_t level;
+  uint32_t num_lines_cleared;
+  RowClearType clear_type;
+  RowClearType last_clear_type;
 
   // TODO(ray): Maybe unify this data instead of keeping it in the board
   uint32_t board_width;
@@ -74,6 +79,8 @@ typedef struct TState {
   Board board;
   // Holds all committed pieces on the board
   Board committed_board;
+
+  int lock_delay_fr;
 } TState;
 
 // Movement
@@ -96,7 +103,10 @@ void hold(); // Holds the current piece and swaps to held
 void get_ghost(); // Get the location of the current piece if hard dropped
 void commit(); // Commits piece to board
 
-void update(); // Updates the state of the game
+void update(int dt_ms); // Updates the state of the game
 
+// Debug
+
+void load_board(int data[220]);
 
 #endif

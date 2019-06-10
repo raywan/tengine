@@ -46,7 +46,7 @@ internal int kick_test_table[40][2] = {
   {0,0}, {1,0},  {1,1},   {0,-2}, {1,-2},  // 2 -> L
   {0,0}, {-1,0}, {-1,-1}, {0,2},  {-1,2},  // L -> 2
   {0,0}, {-1,0}, {-1,-1}, {0,2},  {-1,2},  // L -> 0
-  {0,0}, {1,0},  {1,0},   {0,-2}, {1,-2}   // 0 -> L
+  {0,0}, {1,0},  {1,1},   {0,-2}, {1,-2}   // 0 -> L
 };
 
 #if 0
@@ -78,6 +78,10 @@ internal int i_kick_test_table[40][2] = {
   {0,-1}, {-1,-1}, {2,-1},  {-1,1},  {2,-2}   // 0 -> L
 };
 #endif
+
+// NOTE(ray): Table follows 2009 guidelines
+// http://harddrop.com/wiki/Scoring
+internal int score_table[11] = { 100, 300, 500, 800, 100, 400, 200, 800, 1200, 1200, 1600 };
 
 // __INTERNAL
 
@@ -221,7 +225,7 @@ internal inline int get_max_y_offset() {
 
 internal inline int is_board_xy_filled(int x, int y) {
   // Implicitly define that trying to go out of bounds is hitting a filled section
-  /* printf("is_board_xy_filled(x = %d, y = %d)\n", x, y); */
+  // printf("is_board_xy_filled(x = %d, y = %d)\n", x, y);
   if (x < 0 || x >= t_state.committed_board.width) {
     /* puts("FAILED WIDTH CHECK"); */
     return 1;
@@ -230,6 +234,24 @@ internal inline int is_board_xy_filled(int x, int y) {
     return 1;
   }
   return t_state.committed_board.data[t_state.committed_board.width * y + x] != -1;
+}
+
+internal inline int will_piece_collide(PieceType type, PieceOrientation orientation, int potential_x, int potential_y) {
+  int offsets = get_raw_offsets(type, orientation);
+  int ox_1 = offset_code_get_int_value(OFFSET_1_X_CODE(offsets));
+  int ox_2 = offset_code_get_int_value(OFFSET_2_X_CODE(offsets));
+  int ox_3 = offset_code_get_int_value(OFFSET_3_X_CODE(offsets));
+  int oy_1 = offset_code_get_int_value(OFFSET_1_Y_CODE(offsets));
+  int oy_2 = offset_code_get_int_value(OFFSET_2_Y_CODE(offsets));
+  int oy_3 = offset_code_get_int_value(OFFSET_3_Y_CODE(offsets));
+
+  if (!is_board_xy_filled(potential_x, potential_y) &&
+      !is_board_xy_filled(potential_x + ox_1, potential_y + oy_1) &&
+      !is_board_xy_filled(potential_x + ox_2, potential_y + oy_2) &&
+      !is_board_xy_filled(potential_x + ox_3, potential_y + oy_3)) {
+    return 0;
+  }
+  return 1;
 }
 
 internal void set_board_data(Board *b, int x, int y, int i) {
@@ -254,15 +276,25 @@ internal void set_piece(Board *b, Piece p, int i) {
 
 void init_system() {
   srand(69);
+
+  t_state.score = 0;
+  t_state.combo = -1;
+  t_state.level = 1;
+  t_state.num_lines_cleared = 0;
+
   t_state.has_swapped = 0;
   t_state.is_initial_swap = 1;
+
   t_state.cur_piece = get_next_piece();
+
   t_state.board.width = WIDTH;
   t_state.board.height = HEIGHT;
   t_state.board.data = (int *) malloc(sizeof(int) * WIDTH * HEIGHT);
+
   t_state.committed_board.width = WIDTH;
   t_state.committed_board.height = HEIGHT;
   t_state.committed_board.data = (int *) malloc(sizeof(int) * WIDTH * HEIGHT);
+
   for (int i = 0; i < t_state.board.height; i++) {
     for (int j = 0; j < t_state.board.width; j++) {
       t_state.board.data[t_state.board.width * i + j] = -1;
@@ -300,6 +332,7 @@ Piece get_next_piece() {
   Piece result;
   // TODO(ray): This random generation is temporary.
   result.type = 1 << (int) (((double) rand()/RAND_MAX) * (9 - 3) + 3);
+  // result.type = PT_T;
   result.orientation = PO_ZERO;
   result.x = DEFAULT_SPAWN_X;
   result.y = DEFAULT_SPAWN_Y;
@@ -340,15 +373,21 @@ void get_ghost() {
 }
 
 // Updates the state of the game
-void update() {
+void update(int dt_ms) {
   // Clear the board in preparation for next render
   for (int i = 0; i < t_state.board.height; i++) {
     for (int j = 0; j < t_state.board.width; j++) {
       t_state.board.data[t_state.board.width * i + j] = -1;
     }
   }
+
+  move_down();
+
   get_ghost();
-  /* move_down(); */
+
+  // TODO(ray): Handle soft drop
+  // If we've been colliding for 30 frames, commit
+#if 1
   int raw_offsets = get_raw_offsets(t_state.cur_piece.type, t_state.cur_piece.orientation);
   int ox_1 = offset_code_get_int_value(OFFSET_1_X_CODE(raw_offsets));
   int ox_2 = offset_code_get_int_value(OFFSET_2_X_CODE(raw_offsets));
@@ -360,6 +399,10 @@ void update() {
   printf("ox_1: %d, ox_2: %d, ox_3: %d\noy_1: %d, oy_2: %d, oy_3: %d\n", ox_1, ox_2, ox_3, oy_1, oy_2, oy_3);
   printf("ghost_piece.x = %d\nghost_piece.y = %d\n", t_state.ghost_piece.x, t_state.ghost_piece.y);
   printf("held_piece type %d\n", t_state.held_piece.type);
+  printf("num_lines_cleared: %d\n", t_state.num_lines_cleared);
+#endif
+
+  // NOTE(ray): The following operations are for rendering the board
   // Copy the commited_board to the board
   memcpy(t_state.board.data, t_state.committed_board.data, sizeof(int) * WIDTH * HEIGHT);
   // Set the ghost
@@ -372,10 +415,6 @@ void update() {
 void commit() {
   // Write the piece to the committed board
   set_piece(&t_state.committed_board, t_state.cur_piece, 1);
-  // Grab the next piece
-  t_state.cur_piece = get_next_piece();
-  // Reset swap state
-  t_state.has_swapped = 0;
 
   // 1. Check bottom up if there are any filled rows
   // 2. Mark filled rows
@@ -400,6 +439,7 @@ void commit() {
   }
 
   if (num_rows_filled > 0) {
+    t_state.num_lines_cleared += num_rows_filled;
     // Compact starting from the top down
     for (int i = num_rows_filled-1; i >= 0; i--) {
       // Start from the cleared row and start moving stuff down
@@ -413,7 +453,24 @@ void commit() {
         }
       }
     }
+
+    t_state.last_clear_type = t_state.clear_type;
+    if (num_rows_filled == 1) {
+      t_state.clear_type = LCT_SINGLE;
+    } else if (num_rows_filled == 2) {
+      t_state.clear_type = LCT_DOUBLE;
+    } else if (num_rows_filled == 3) {
+      t_state.clear_type = LCT_TRIPLE;
+    } else if (num_rows_filled == 4) {
+      t_state.clear_type = LCT_TETRIS;
+    }
   }
+
+
+  // Grab the next piece
+  t_state.cur_piece = get_next_piece();
+  // Reset swap state
+  t_state.has_swapped = 0;
 }
 
 // __MOVEMENT
@@ -434,6 +491,11 @@ void move_left() {
   // Moving into another filled block on the board, stop the move.
   // Check all negative x offsets. If any of the negative offset blocks are
   int potential_x = t_state.cur_piece.x - 1;
+
+  if (is_board_xy_filled(potential_x, t_state.cur_piece.y)) {
+    return;
+  }
+
   if (ox_1 <= 0 && is_board_xy_filled(potential_x + ox_1, t_state.cur_piece.y + oy_1)) {
     return;
   }
@@ -465,6 +527,11 @@ void move_right() {
   // Moving into another filled block on the board, stop the move.
   // Check all negative x offsets. If any of the negative offset blocks are
   int potential_x = t_state.cur_piece.x + 1;
+
+  if (is_board_xy_filled(potential_x, t_state.cur_piece.y)) {
+    return;
+  }
+
   if (ox_1 >= 0 && is_board_xy_filled(potential_x + ox_1, t_state.cur_piece.y + oy_1)) {
     return;
   }
@@ -491,6 +558,10 @@ void move_down() {
   int oy_3 = offset_code_get_int_value(OFFSET_3_Y_CODE(offsets));
 
   int potential_y = t_state.cur_piece.y + 1;
+  if (is_board_xy_filled(t_state.cur_piece.x, potential_y)) {
+    return;
+  }
+
   if (oy_1 >= 0 && is_board_xy_filled(t_state.cur_piece.x + ox_1, potential_y + oy_1)) {
     return;
   }
@@ -517,14 +588,6 @@ void hard_drop() {
 
 // Try to rotate, mutates the position
 internal void kick_test(PieceOrientation from_ori, PieceOrientation to_ori) {
-
-  int offsets = get_raw_offsets(t_state.cur_piece.type, to_ori);
-  int ox_1 = offset_code_get_int_value(OFFSET_1_X_CODE(offsets));
-  int ox_2 = offset_code_get_int_value(OFFSET_2_X_CODE(offsets));
-  int ox_3 = offset_code_get_int_value(OFFSET_3_X_CODE(offsets));
-  int oy_1 = offset_code_get_int_value(OFFSET_1_Y_CODE(offsets));
-  int oy_2 = offset_code_get_int_value(OFFSET_2_Y_CODE(offsets));
-  int oy_3 = offset_code_get_int_value(OFFSET_3_Y_CODE(offsets));
 
   int kick_table_vidx = -1;
   if (from_ori == PO_ZERO && to_ori == PO_RIGHT) {
@@ -557,10 +620,8 @@ internal void kick_test(PieceOrientation from_ori, PieceOrientation to_ori) {
       potential_y = t_state.cur_piece.y - kick_test_table[5 * kick_table_vidx + i][1];
     }
 
-    if (!is_board_xy_filled(potential_x + ox_1, potential_y + oy_1) &&
-        !is_board_xy_filled(potential_x + ox_2, potential_y + oy_2) &&
-        !is_board_xy_filled(potential_x + ox_3, potential_y + oy_3)) {
-      // We good, mutate the position
+    if (!will_piece_collide(t_state.cur_piece.type, to_ori, potential_x, potential_y)) {
+      printf("SUCCESS KICK v: %d i: %d\n", kick_table_vidx, i);
       t_state.cur_piece.x = potential_x;
       t_state.cur_piece.y = potential_y;
       t_state.cur_piece.orientation = to_ori;
@@ -610,3 +671,11 @@ void rotate_right() {
   kick_test(t_state.cur_piece.orientation, to_ori);
 }
 
+
+void load_board(int data[220]) {
+  for (int i = 0; i < t_state.board.height; i++) {
+    for (int j = 0; j < t_state.board.width; j++) {
+      set_board_data(&t_state.committed_board, j, i, data[t_state.board.width * i + j]);
+    }
+  }
+}

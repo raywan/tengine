@@ -18,3 +18,5 @@
 [Line Clear](https://tetris.wiki/Line_clear)
 
 [Combo](http://harddrop.com/wiki/Combo)
+
+[Random Generator](http://harddrop.com/wiki/Random_Generator)
