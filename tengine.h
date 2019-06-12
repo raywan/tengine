@@ -83,6 +83,10 @@ typedef struct TState {
   int lock_delay_fr;
 } TState;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Movement
 void move_left();
 void move_right();
@@ -108,5 +112,10 @@ void update(int dt_ms); // Updates the state of the game
 // Debug
 
 void load_board(int data[220]);
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif
