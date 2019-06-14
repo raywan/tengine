@@ -32,10 +32,12 @@
 #define OFFSET_2_Y_CODE(raw_offsets) (OFFSET_2_HEX(raw_offsets) & OFFSET_Y_MASK)
 #define OFFSET_3_Y_CODE(raw_offsets) (OFFSET_3_HEX(raw_offsets) & OFFSET_Y_MASK)
 
-#define DEFAULT_SPAWN_X 5
-#define DEFAULT_SPAWN_Y 5
+#define DEFAULT_SPAWN_X 4
+#define DEFAULT_SPAWN_Y 4
 
 internal TState t_state;
+
+internal PieceType piece_permutations[5040][7];
 
 internal int kick_test_table[40][2] = {
   {0,0}, {-1,0}, {-1,1},  {0,-2}, {-1,-2}, // 0 -> R
@@ -89,16 +91,16 @@ internal int score_table[11] = { 100, 300, 500, 800, 100, 400, 200, 800, 1200, 1
 internal int get_raw_offsets(PieceType type, PieceOrientation orientation) {
   switch (type | orientation) {
     case PT_I | PO_ZERO:
-      puts("PT_I | PO_ZERO");
+      // puts("PT_I | PO_ZERO");
       return 0x201030;
     case PT_I | PO_RIGHT:
-      puts("PT_I | PO_RIGHT");
+      // puts("PT_I | PO_RIGHT");
       return 0x20103;
     case PT_I | PO_TWO:
-      puts("PT_I | PO_TWO");
+      // puts("PT_I | PO_TWO");
       return 0x102040;
     case PT_I | PO_LEFT:
-      puts("PT_I | PO_LEFT");
+      // puts("PT_I | PO_LEFT");
       return 0x20401;
 
     case PT_O | PO_ZERO:
@@ -108,68 +110,68 @@ internal int get_raw_offsets(PieceType type, PieceOrientation orientation) {
       return 0x100111;
 
     case PT_T | PO_ZERO:
-      puts("PT_T | PO_ZERO");
+      // puts("PT_T | PO_ZERO");
       return 0x201002;
     case PT_T | PO_RIGHT:
-      puts("PT_T | PO_RIGHT");
+      // puts("PT_T | PO_RIGHT");
       return 0x11002;
     case PT_T | PO_TWO:
-      puts("PT_T | PO_TWO");
+      // puts("PT_T | PO_TWO");
       return 0x12010;
     case PT_T | PO_LEFT:
-      puts("PT_T | PO_LEFT");
+      // puts("PT_T | PO_LEFT");
       return 0x12002;
 
     case PT_S | PO_ZERO:
-      puts("PT_S | PO_ZERO");
+      // puts("PT_S | PO_ZERO");
       return 0x200212;
     case PT_S | PO_RIGHT:
-      puts("PT_S | PO_RIGHT");
+      // puts("PT_S | PO_RIGHT");
       return 0x111002;
     case PT_S | PO_TWO:
-      puts("PT_S | PO_TWO");
+      // puts("PT_S | PO_TWO");
       return 0x210110;
     case PT_S | PO_LEFT:
-      puts("PT_S | PO_LEFT");
+      // puts("PT_S | PO_LEFT");
       return 0x12022;
 
     case PT_Z | PO_ZERO:
-      puts("PT_Z | PO_ZERO");
+      // puts("PT_Z | PO_ZERO");
       return 0x102202;
     case PT_Z | PO_RIGHT:
-      puts("PT_Z | PO_RIGHT");
+      // puts("PT_Z | PO_RIGHT");
       return 0x11012;
     case PT_Z | PO_TWO:
-      puts("PT_Z | PO_TWO");
+      // puts("PT_Z | PO_TWO");
       return 0x11120;
     case PT_Z | PO_LEFT:
-      puts("PT_Z | PO_LEFT");
+      // puts("PT_Z | PO_LEFT");
       return 0x212002;
 
     case PT_J | PO_ZERO:
-      puts("PT_J | PO_ZERO");
+      // puts("PT_J | PO_ZERO");
       return 0x201022;
     case PT_J | PO_RIGHT:
-      puts("PT_J | PO_RIGHT");
+      // puts("PT_J | PO_RIGHT");
       return 0x10212;
     case PT_J | PO_TWO:
-      puts("PT_J | PO_TWO");
+      // puts("PT_J | PO_TWO");
       return 0x112010;
     case PT_J | PO_LEFT:
-      puts("PT_J | PO_LEFT");
+      // puts("PT_J | PO_LEFT");
       return 0x210102;
 
     case PT_L | PO_ZERO:
-      puts("PT_L | PO_ZERO");
+      // puts("PT_L | PO_ZERO");
       return 0x201012;
     case PT_L | PO_RIGHT:
-      puts("PT_L | PO_RIGHT");
+      // puts("PT_L | PO_RIGHT");
       return 0x11102;
     case PT_L | PO_TWO:
-      puts("PT_L | PO_TWO");
+      // puts("PT_L | PO_TWO");
       return 0x212010;
     case PT_L | PO_LEFT:
-      puts("PT_L | PO_LEFT");
+      // puts("PT_L | PO_LEFT");
       return 0x12202;
     default:
       return -1;
@@ -272,10 +274,41 @@ internal void set_piece(Board *b, Piece p, int i) {
   set_board_data(b, p.x + ox_3, p.y + oy_3, i);
 }
 
+internal void generate_permutations(PieceType arr[7], int k, int *perm_idx) {
+  if (k == 1) {
+    for (int i = 0; i < 7; i++) {
+      piece_permutations[*perm_idx][i] = arr[i];
+    }
+  } else {
+    generate_permutations(arr, k - 1, perm_idx);
+    for (int i = 0; i < k - 1; i++) {
+      if (k % 2 == 0) {
+        PieceType tmp = arr[i];
+        arr[i] = arr[k-1];
+        arr[k - 1] = tmp;
+      } else {
+        PieceType tmp = arr[0];
+        arr[0] = arr[k-1];
+        arr[k - 1] = tmp;
+      }
+      (*perm_idx)++;
+      generate_permutations(arr, k - 1, perm_idx);
+    }
+  }
+}
+
 // __SYSTEM
 
-void init_system() {
+void te_init_system() {
   srand(69);
+
+  // Generate permuations
+  int perm_idx = 0;
+  PieceType arr[7] = { PT_I, PT_O, PT_T, PT_S, PT_Z, PT_J, PT_L };
+  generate_permutations(arr, 7, &perm_idx);
+  // Initially pick a random bag
+  t_state.cur_bag_idx = (int) (rand() % (5040-1));
+  t_state.cur_piece_idx_in_bag = 0;
 
   t_state.score = 0;
   t_state.combo = -1;
@@ -301,6 +334,10 @@ void init_system() {
       t_state.committed_board.data[t_state.board.width * i + j] = -1;
     }
   }
+}
+
+TState *get_state() {
+  return &t_state;
 }
 
 Board *get_board() {
@@ -329,13 +366,21 @@ void hold() {
 }
 
 Piece get_next_piece() {
+  if (t_state.cur_piece_idx_in_bag > 6) {
+    // Reset idx
+    t_state.cur_piece_idx_in_bag = 0;
+    // Generate a new bag
+    t_state.cur_bag_idx = (int) (rand() % (5040-1));
+  }
+
+  // Get the next piece in the bag
   Piece result;
-  // TODO(ray): This random generation is temporary.
-  result.type = 1 << (int) (((double) rand()/RAND_MAX) * (9 - 3) + 3);
+  result.type = piece_permutations[t_state.cur_bag_idx][t_state.cur_piece_idx_in_bag];
   // result.type = PT_T;
   result.orientation = PO_ZERO;
   result.x = DEFAULT_SPAWN_X;
   result.y = DEFAULT_SPAWN_Y;
+  ++t_state.cur_piece_idx_in_bag;
   return result;
 }
 
@@ -373,7 +418,7 @@ void get_ghost() {
 }
 
 // Updates the state of the game
-void update(int dt_ms) {
+void te_update(int dt_ms) {
   // Clear the board in preparation for next render
   for (int i = 0; i < t_state.board.height; i++) {
     for (int j = 0; j < t_state.board.width; j++) {
@@ -381,13 +426,13 @@ void update(int dt_ms) {
     }
   }
 
-  move_down();
+  // move_down();
 
   get_ghost();
 
   // TODO(ray): Handle soft drop
   // If we've been colliding for 30 frames, commit
-#if 1
+#if 0
   int raw_offsets = get_raw_offsets(t_state.cur_piece.type, t_state.cur_piece.orientation);
   int ox_1 = offset_code_get_int_value(OFFSET_1_X_CODE(raw_offsets));
   int ox_2 = offset_code_get_int_value(OFFSET_2_X_CODE(raw_offsets));
@@ -406,15 +451,15 @@ void update(int dt_ms) {
   // Copy the commited_board to the board
   memcpy(t_state.board.data, t_state.committed_board.data, sizeof(int) * WIDTH * HEIGHT);
   // Set the ghost
-  set_piece(&t_state.board, t_state.ghost_piece, 2);
+  set_piece(&t_state.board, t_state.ghost_piece, -2);
   // Set the piece
-  set_piece(&t_state.board, t_state.cur_piece, 1);
+  set_piece(&t_state.board, t_state.cur_piece, t_state.cur_piece.type);
 }
 
 // Commits piece to board
 void commit() {
   // Write the piece to the committed board
-  set_piece(&t_state.committed_board, t_state.cur_piece, 1);
+  set_piece(&t_state.committed_board, t_state.cur_piece, t_state.cur_piece.type);
 
   // 1. Check bottom up if there are any filled rows
   // 2. Mark filled rows

@@ -80,6 +80,9 @@ typedef struct TState {
   // Holds all committed pieces on the board
   Board committed_board;
 
+  int cur_bag_idx;
+  PieceType cur_piece_idx_in_bag;
+
   int lock_delay_fr;
 } TState;
 
@@ -96,8 +99,9 @@ void rotate_left();
 void rotate_right();
 
 // System
-void init_system();
+void te_init_system();
 
+TState *get_state();
 Board *get_board();
 Board *get_committed_board();
 
@@ -107,7 +111,7 @@ void hold(); // Holds the current piece and swaps to held
 void get_ghost(); // Get the location of the current piece if hard dropped
 void commit(); // Commits piece to board
 
-void update(int dt_ms); // Updates the state of the game
+void te_update(int dt_ms); // Updates the state of the game
 
 // Debug
 

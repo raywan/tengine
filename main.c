@@ -22,7 +22,7 @@ void render_board(Board *b) {
         printf("x");
       } else if (b->data[b->width * i + j] == 8) {
         printf("0");
-      } else if (b->data[b->width * i + j] == 2) {
+      } else if (b->data[b->width * i + j] == -2) {
         printf("g");
       }
     }
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
   // ASSERT(1 == 0);
   puts("HELLO WORLD");
   unsigned int iteration = 0;
-  init_system();
+  te_init_system();
   Board *b = get_board();
   // load_board(test_data);
   Board *cb = get_committed_board();
@@ -123,7 +123,7 @@ int main(int argc, char *argv[]) {
     initial = 0;
     // clear_terminal();
     puts("");
-    update(0);
+    te_update(0);
     render_board(b);
     puts("");
     render_board(cb);
