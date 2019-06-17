@@ -29,6 +29,7 @@ typedef enum PieceType {
   PT_Z = 1 << 7,
   PT_J = 1 << 8,
   PT_L = 1 << 9,
+  PT_GHOST = 1 << 10,
 } PieceType;
 
 // TODO(ray): Complete this enumeration
@@ -56,6 +57,7 @@ typedef struct Piece {
 typedef struct TState {
   int score;
   int combo;
+
   // When lines cleared reaches current level times 10, increase level by 1
   uint32_t level;
   uint32_t num_lines_cleared;
@@ -83,7 +85,16 @@ typedef struct TState {
   int cur_bag_idx;
   PieceType cur_piece_idx_in_bag;
 
+  // Frames before locking (committing) the piece if colliding
   int lock_delay_fr;
+  int lock_delay_fr_counter;
+  // Frames before moving the current piece down naturally
+  int gravity_fr; // cells per frame
+  int gravity_fr_counter;
+  // DAS - frames before auto shifting from holding left/right down
+  int delay_auto_shift_fr;
+  int delay_auto_shift_fr_counter;
+
 } TState;
 
 #ifdef __cplusplus
@@ -111,7 +122,7 @@ void hold(); // Holds the current piece and swaps to held
 void get_ghost(); // Get the location of the current piece if hard dropped
 void commit(); // Commits piece to board
 
-void te_update(int dt_ms); // Updates the state of the game
+void te_update(int dt_frame); // Updates the state of the game
 
 // Debug
 

@@ -33,7 +33,7 @@
 #define OFFSET_3_Y_CODE(raw_offsets) (OFFSET_3_HEX(raw_offsets) & OFFSET_Y_MASK)
 
 #define DEFAULT_SPAWN_X 4
-#define DEFAULT_SPAWN_Y 4
+#define DEFAULT_SPAWN_Y 0
 
 internal TState t_state;
 
@@ -300,7 +300,7 @@ internal void generate_permutations(PieceType arr[7], int k, int *perm_idx) {
 // __SYSTEM
 
 void te_init_system() {
-  srand(69);
+  srand(420);
 
   // Generate permuations
   int perm_idx = 0;
@@ -327,6 +327,11 @@ void te_init_system() {
   t_state.committed_board.width = WIDTH;
   t_state.committed_board.height = HEIGHT;
   t_state.committed_board.data = (int *) malloc(sizeof(int) * WIDTH * HEIGHT);
+
+  t_state.lock_delay_fr = 30;
+  t_state.lock_delay_fr_counter = 0;
+  t_state.gravity_fr = 60;
+  t_state.gravity_fr_counter = 0;
 
   for (int i = 0; i < t_state.board.height; i++) {
     for (int j = 0; j < t_state.board.width; j++) {
@@ -381,6 +386,8 @@ Piece get_next_piece() {
   result.x = DEFAULT_SPAWN_X;
   result.y = DEFAULT_SPAWN_Y;
   ++t_state.cur_piece_idx_in_bag;
+  // Reset lock delay timer
+  t_state.lock_delay_fr_counter = 0;
   return result;
 }
 
@@ -399,7 +406,7 @@ void get_ghost() {
   int oy_2 = offset_code_get_int_value(OFFSET_2_Y_CODE(offsets));
   int oy_3 = offset_code_get_int_value(OFFSET_3_Y_CODE(offsets));
 
-  int ghost_y;
+  int ghost_y = 0;
   // TODO(ray): Check starting from the bottom instead. May lead to earlier break
   // Reverse in logic means keep moving up until there are no collisions.
   for (int i = 0; i < HEIGHT - t_state.cur_piece.y; i++) {
@@ -418,7 +425,7 @@ void get_ghost() {
 }
 
 // Updates the state of the game
-void te_update(int dt_ms) {
+void te_update(int dt_frame) {
   // Clear the board in preparation for next render
   for (int i = 0; i < t_state.board.height; i++) {
     for (int j = 0; j < t_state.board.width; j++) {
@@ -426,7 +433,26 @@ void te_update(int dt_ms) {
     }
   }
 
-  // move_down();
+  // Try to move down
+  if (will_piece_collide(t_state.cur_piece.type, t_state.cur_piece.orientation, t_state.cur_piece.x, t_state.cur_piece.y + 1)) {
+    // Check lock delay
+    if (t_state.lock_delay_fr_counter >= t_state.lock_delay_fr) {
+      // Reset counter
+      t_state.lock_delay_fr_counter = 0;
+      // Lock
+      hard_drop();
+    } else {
+      ++t_state.lock_delay_fr_counter;
+    }
+  }
+  else {
+    if (t_state.gravity_fr_counter >= t_state.gravity_fr) {
+      t_state.gravity_fr_counter = 0;
+      move_down();
+    } else {
+      ++t_state.gravity_fr_counter;
+    }
+  }
 
   get_ghost();
 
@@ -451,7 +477,7 @@ void te_update(int dt_ms) {
   // Copy the commited_board to the board
   memcpy(t_state.board.data, t_state.committed_board.data, sizeof(int) * WIDTH * HEIGHT);
   // Set the ghost
-  set_piece(&t_state.board, t_state.ghost_piece, -2);
+  set_piece(&t_state.board, t_state.ghost_piece, PT_GHOST);
   // Set the piece
   set_piece(&t_state.board, t_state.cur_piece, t_state.cur_piece.type);
 }
@@ -485,6 +511,7 @@ void commit() {
 
   if (num_rows_filled > 0) {
     t_state.num_lines_cleared += num_rows_filled;
+    printf("num_lines_cleared: %d\n", t_state.num_lines_cleared);
     // Compact starting from the top down
     for (int i = num_rows_filled-1; i >= 0; i--) {
       // Start from the cleared row and start moving stuff down
@@ -509,8 +536,18 @@ void commit() {
     } else if (num_rows_filled == 4) {
       t_state.clear_type = LCT_TETRIS;
     }
+
+    // Compute the score
+    t_state.score += score_table[t_state.clear_type] * t_state.level;
+
+    printf("score: %d\n", t_state.score);
   }
 
+  // Increase the level if applicable
+  if (t_state.num_lines_cleared == t_state.level * 10) {
+    ++t_state.level;
+    printf("level: %d\n", t_state.level);
+  }
 
   // Grab the next piece
   t_state.cur_piece = get_next_piece();
@@ -666,7 +703,7 @@ internal void kick_test(PieceOrientation from_ori, PieceOrientation to_ori) {
     }
 
     if (!will_piece_collide(t_state.cur_piece.type, to_ori, potential_x, potential_y)) {
-      printf("SUCCESS KICK v: %d i: %d\n", kick_table_vidx, i);
+      // printf("SUCCESS KICK v: %d i: %d\n", kick_table_vidx, i);
       t_state.cur_piece.x = potential_x;
       t_state.cur_piece.y = potential_y;
       t_state.cur_piece.orientation = to_ori;

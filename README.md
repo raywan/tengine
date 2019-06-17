@@ -20,3 +20,7 @@
 [Combo](http://harddrop.com/wiki/Combo)
 
 [Random Generator](http://harddrop.com/wiki/Random_Generator)
+
+[Gravity Curve](https://harddrop.com/wiki/Tetris_Worlds)
+
+[How Tetris 99 Gravity Works](https://old.reddit.com/r/Tetris99/comments/c03g2i/how_tetris_99_gravity_works)
