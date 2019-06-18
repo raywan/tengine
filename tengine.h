@@ -6,7 +6,8 @@
 #define TENGINE_DEBUG
 
 #define WIDTH 10
-#define HEIGHT 22
+#define HEIGHT 20
+#define HEIGHT_PADDING 0
 
 typedef struct Board {
   int width;
@@ -51,7 +52,7 @@ typedef struct Piece {
   PieceType type;
   PieceOrientation orientation;
   // The center point, the point the piece rotates about
-  unsigned int x, y;
+  int x, y;
 } Piece;
 
 typedef struct TState {
@@ -95,6 +96,7 @@ typedef struct TState {
   int delay_auto_shift_fr;
   int delay_auto_shift_fr_counter;
 
+  int game_over;
 } TState;
 
 #ifdef __cplusplus
@@ -123,6 +125,8 @@ void get_ghost(); // Get the location of the current piece if hard dropped
 void commit(); // Commits piece to board
 
 void te_update(int dt_frame); // Updates the state of the game
+
+int te_is_game_over();
 
 // Debug
 

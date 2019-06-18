@@ -229,11 +229,15 @@ internal inline int is_board_xy_filled(int x, int y) {
   // Implicitly define that trying to go out of bounds is hitting a filled section
   // printf("is_board_xy_filled(x = %d, y = %d)\n", x, y);
   if (x < 0 || x >= t_state.committed_board.width) {
-    /* puts("FAILED WIDTH CHECK"); */
+     // printf("FAILED WIDTH CHECK: x = %d, width: %d\n", x, t_state.committed_board.width);
     return 1;
-  } else if (y < 0 || y >= t_state.committed_board.height) {
-    /* puts("FAILED HEIGHT CHECK"); */
+  // } else if (y < 0 || y >= t_state.committed_board.height) {
+  } else if (y >= t_state.committed_board.height) {
+     // puts("FAILED HEIGHT CHECK");
     return 1;
+  } else if (y < 0) {
+    // NOTE(ray): Don't consider topping out to be "colliding". Handle this differently.
+    return 0;
   }
   return t_state.committed_board.data[t_state.committed_board.width * y + x] != -1;
 }
@@ -302,6 +306,22 @@ internal void generate_permutations(PieceType arr[7], int k, int *perm_idx) {
 void te_init_system() {
   srand(420);
 
+  // Allocate memory for board data
+  t_state.board.width = WIDTH;
+  t_state.board.height = HEIGHT;
+  t_state.board.data = (int *) malloc(sizeof(int) * WIDTH * HEIGHT);
+
+  t_state.committed_board.width = WIDTH;
+  t_state.committed_board.height = HEIGHT;
+  t_state.committed_board.data = (int *) malloc(sizeof(int) * WIDTH * HEIGHT);
+
+  for (int i = 0; i < t_state.board.height; i++) {
+    for (int j = 0; j < t_state.board.width; j++) {
+      t_state.board.data[t_state.board.width * i + j] = -1;
+      t_state.committed_board.data[t_state.board.width * i + j] = -1;
+    }
+  }
+
   // Generate permuations
   int perm_idx = 0;
   PieceType arr[7] = { PT_I, PT_O, PT_T, PT_S, PT_Z, PT_J, PT_L };
@@ -310,6 +330,7 @@ void te_init_system() {
   t_state.cur_bag_idx = (int) (rand() % (5040-1));
   t_state.cur_piece_idx_in_bag = 0;
 
+  t_state.game_over = 0;
   t_state.score = 0;
   t_state.combo = -1;
   t_state.level = 1;
@@ -320,25 +341,10 @@ void te_init_system() {
 
   t_state.cur_piece = get_next_piece();
 
-  t_state.board.width = WIDTH;
-  t_state.board.height = HEIGHT;
-  t_state.board.data = (int *) malloc(sizeof(int) * WIDTH * HEIGHT);
-
-  t_state.committed_board.width = WIDTH;
-  t_state.committed_board.height = HEIGHT;
-  t_state.committed_board.data = (int *) malloc(sizeof(int) * WIDTH * HEIGHT);
-
   t_state.lock_delay_fr = 30;
   t_state.lock_delay_fr_counter = 0;
   t_state.gravity_fr = 60;
   t_state.gravity_fr_counter = 0;
-
-  for (int i = 0; i < t_state.board.height; i++) {
-    for (int j = 0; j < t_state.board.width; j++) {
-      t_state.board.data[t_state.board.width * i + j] = -1;
-      t_state.committed_board.data[t_state.board.width * i + j] = -1;
-    }
-  }
 }
 
 TState *get_state() {
@@ -388,6 +394,10 @@ Piece get_next_piece() {
   ++t_state.cur_piece_idx_in_bag;
   // Reset lock delay timer
   t_state.lock_delay_fr_counter = 0;
+  // Check if we're spawning on any filled pieces
+  if (will_piece_collide(result.type, result.orientation, result.x, result.y)) {
+    t_state.game_over = 1;
+  }
   return result;
 }
 
@@ -410,10 +420,7 @@ void get_ghost() {
   // TODO(ray): Check starting from the bottom instead. May lead to earlier break
   // Reverse in logic means keep moving up until there are no collisions.
   for (int i = 0; i < HEIGHT - t_state.cur_piece.y; i++) {
-    if (is_board_xy_filled(t_state.cur_piece.x, t_state.cur_piece.y + i) ||
-        is_board_xy_filled(t_state.cur_piece.x + ox_1, t_state.cur_piece.y + i + oy_1) ||
-        is_board_xy_filled(t_state.cur_piece.x + ox_2, t_state.cur_piece.y + i + oy_2) ||
-        is_board_xy_filled(t_state.cur_piece.x + ox_3, t_state.cur_piece.y + i + oy_3)) {
+    if (will_piece_collide(t_state.cur_piece.type, t_state.cur_piece.orientation, t_state.cur_piece.x, t_state.cur_piece.y + i)) {
       break;
     }
     ghost_y = t_state.cur_piece.y + i;
@@ -426,6 +433,9 @@ void get_ghost() {
 
 // Updates the state of the game
 void te_update(int dt_frame) {
+
+  if (t_state.game_over) return;
+
   // Clear the board in preparation for next render
   for (int i = 0; i < t_state.board.height; i++) {
     for (int j = 0; j < t_state.board.width; j++) {
@@ -484,6 +494,16 @@ void te_update(int dt_frame) {
 
 // Commits piece to board
 void commit() {
+
+  // Check for partial top-out 
+  int raw_offsets = get_raw_offsets(t_state.cur_piece.type, t_state.cur_piece.orientation);
+  int oy_1 = offset_code_get_int_value(OFFSET_1_Y_CODE(raw_offsets));
+  int oy_2 = offset_code_get_int_value(OFFSET_2_Y_CODE(raw_offsets));
+  int oy_3 = offset_code_get_int_value(OFFSET_3_Y_CODE(raw_offsets));
+  if ((t_state.cur_piece.y < 0) || (t_state.cur_piece.y + oy_1 < 0) || (t_state.cur_piece.y + oy_2 < 0) || (t_state.cur_piece.y + oy_3 < 0)) {
+    t_state.game_over = 1;
+  }
+
   // Write the piece to the committed board
   set_piece(&t_state.committed_board, t_state.cur_piece, t_state.cur_piece.type);
 
@@ -760,4 +780,8 @@ void load_board(int data[220]) {
       set_board_data(&t_state.committed_board, j, i, data[t_state.board.width * i + j]);
     }
   }
+}
+
+int te_is_game_over() {
+  return t_state.game_over;
 }

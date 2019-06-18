@@ -14,7 +14,7 @@ constexpr SDL_Color WHITE = { 255, 255, 255 };
 constexpr int WINDOW_WIDTH = 640;
 constexpr int WINDOW_HEIGHT = 480;
 constexpr int BOARD_WIDTH = 10;
-constexpr int BOARD_HEIGHT = 22;
+constexpr int BOARD_HEIGHT = 20;
 constexpr int OUTER_PADDING = 20; // px
 // For shifting the board over 
 constexpr int BOARD_TOP_LEFT_X = 150; // px
@@ -151,7 +151,13 @@ void render(SDL_Renderer *renderer, TState *t_state) {
 }
 
 void update(int frames) {
-	te_update(frames);
+  if (te_is_game_over()) {
+    // TODO(ray):
+    puts("GAME OVER");
+  }
+  else {
+    te_update(frames);
+  }
 }
 
 int main(int argc, char *argv[]) {
