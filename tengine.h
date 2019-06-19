@@ -77,7 +77,6 @@ typedef struct TState {
   RowClearType clear_type;
   RowClearType last_clear_type;
 
-  Piece next_piece_buf[5];
   Piece cur_piece;
   Piece ghost_piece;
   Piece held_piece;
@@ -93,6 +92,8 @@ typedef struct TState {
 
   int cur_bag_idx;
   PieceType cur_piece_idx_in_bag;
+  int next_piece_buf_cur_idx;
+  PieceType next_piece_buf[5];
 
   // Frames before locking (committing) the piece if colliding
   int lock_delay_fr;

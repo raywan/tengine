@@ -300,6 +300,17 @@ internal void generate_permutations(PieceType arr[7], int k, int *perm_idx) {
     }
   }
 }
+internal PieceType get_next_bag_piece() {
+  if (t_state.cur_piece_idx_in_bag > 6) {
+    // Reset idx
+    t_state.cur_piece_idx_in_bag = 0;
+    // Generate a new bag
+    t_state.cur_bag_idx = (int)(rand() % (5040 - 1));
+  }
+  PieceType result = piece_permutations[t_state.cur_bag_idx][t_state.cur_piece_idx_in_bag];
+  ++t_state.cur_piece_idx_in_bag;
+  return result;
+}
 
 // __SYSTEM
 
@@ -329,6 +340,11 @@ void te_init_system() {
   // Initially pick a random bag
   t_state.cur_bag_idx = (int) (rand() % (5040-1));
   t_state.cur_piece_idx_in_bag = 0;
+  // Fill up the next_piece_buf
+  for (int i = 0; i < 5; i++) {
+    t_state.next_piece_buf[i] = get_next_bag_piece();
+  }
+  t_state.next_piece_buf_cur_idx = 0;
 
   t_state.game_over = 0;
   t_state.score = 0;
@@ -363,6 +379,8 @@ Board *get_committed_board() {
 void hold() {
   if (t_state.is_initial_swap) {
     t_state.held_piece = t_state.cur_piece;
+    // Reset the orientation
+    t_state.held_piece.orientation = PO_ZERO;
     t_state.cur_piece = get_next_piece();
     t_state.has_swapped = 1;
     t_state.is_initial_swap = 0;
@@ -377,21 +395,17 @@ void hold() {
 }
 
 Piece get_next_piece() {
-  if (t_state.cur_piece_idx_in_bag > 6) {
-    // Reset idx
-    t_state.cur_piece_idx_in_bag = 0;
-    // Generate a new bag
-    t_state.cur_bag_idx = (int) (rand() % (5040-1));
-  }
-
-  // Get the next piece in the bag
   Piece result;
-  result.type = piece_permutations[t_state.cur_bag_idx][t_state.cur_piece_idx_in_bag];
-  // result.type = PT_T;
+
+  // Get the next piece from the queue and fill up the spot
+  // by drawing from the bag again
+  result.type = t_state.next_piece_buf[t_state.next_piece_buf_cur_idx];
+  t_state.next_piece_buf[t_state.next_piece_buf_cur_idx] = get_next_bag_piece();
+  t_state.next_piece_buf_cur_idx = (t_state.next_piece_buf_cur_idx + 1) % 5;
+
   result.orientation = PO_ZERO;
   result.x = DEFAULT_SPAWN_X;
   result.y = DEFAULT_SPAWN_Y;
-  ++t_state.cur_piece_idx_in_bag;
   // Reset lock delay timer
   t_state.lock_delay_fr_counter = 0;
   // Check if we're spawning on any filled pieces
@@ -733,7 +747,7 @@ internal void kick_test(PieceOrientation from_ori, PieceOrientation to_ori) {
 }
 
 void rotate_left() {
-  PieceOrientation to_ori;
+  PieceOrientation to_ori = PO_ZERO;
   switch (t_state.cur_piece.orientation) {
     case PO_ZERO:
       to_ori = PO_LEFT;
@@ -754,7 +768,7 @@ void rotate_left() {
 }
 
 void rotate_right() {
-  PieceOrientation to_ori;
+  PieceOrientation to_ori = PO_ZERO;
   switch (t_state.cur_piece.orientation) {
     case PO_ZERO:
       to_ori = PO_RIGHT;
