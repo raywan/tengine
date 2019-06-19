@@ -432,7 +432,7 @@ void get_ghost() {
 }
 
 // Updates the state of the game
-void te_update(int dt_frame) {
+void te_update(int d_frame) {
 
   if (t_state.game_over) return;
 
@@ -495,7 +495,7 @@ void te_update(int dt_frame) {
 // Commits piece to board
 void commit() {
 
-  // Check for partial top-out 
+  // Check for partial top-out
   int raw_offsets = get_raw_offsets(t_state.cur_piece.type, t_state.cur_piece.orientation);
   int oy_1 = offset_code_get_int_value(OFFSET_1_Y_CODE(raw_offsets));
   int oy_2 = offset_code_get_int_value(OFFSET_2_Y_CODE(raw_offsets));

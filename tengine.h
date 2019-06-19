@@ -55,8 +55,20 @@ typedef struct Piece {
   int x, y;
 } Piece;
 
+typedef struct PieceOffsets {
+  int ox_1;
+  int ox_2;
+  int ox_3;
+  int oy_1;
+  int oy_2;
+  int oy_3;
+} PieceOffsets;
+
 typedef struct TState {
+  int game_over;
+
   int score;
+  // NOTE(ray): Currently unused
   int combo;
 
   // When lines cleared reaches current level times 10, increase level by 1
@@ -64,10 +76,6 @@ typedef struct TState {
   uint32_t num_lines_cleared;
   RowClearType clear_type;
   RowClearType last_clear_type;
-
-  // TODO(ray): Maybe unify this data instead of keeping it in the board
-  uint32_t board_width;
-  uint32_t board_height;
 
   Piece next_piece_buf[5];
   Piece cur_piece;
@@ -95,8 +103,6 @@ typedef struct TState {
   // DAS - frames before auto shifting from holding left/right down
   int delay_auto_shift_fr;
   int delay_auto_shift_fr_counter;
-
-  int game_over;
 } TState;
 
 #ifdef __cplusplus
@@ -106,7 +112,7 @@ extern "C" {
 // Movement
 void move_left();
 void move_right();
-void move_down(); // Increase gravity
+void move_down();
 void hard_drop();
 void rotate_left();
 void rotate_right();
@@ -116,21 +122,23 @@ void te_init_system();
 
 TState *get_state();
 Board *get_board();
-Board *get_committed_board();
 
 Piece get_current_piece();
 Piece get_next_piece();
+PieceOffsets get_piece_offsets(PieceType type);
 void hold(); // Holds the current piece and swaps to held
 void get_ghost(); // Get the location of the current piece if hard dropped
 void commit(); // Commits piece to board
 
-void te_update(int dt_frame); // Updates the state of the game
+void te_update(int d_frame); // Updates the state of the game
 
 int te_is_game_over();
+int te_get_level();
+int te_get_score();
 
-// Debug
-
+// Debugging
 void load_board(int data[220]);
+Board *get_committed_board();
 
 #ifdef __cplusplus
 }
