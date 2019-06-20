@@ -67,6 +67,8 @@ Board *get_committed_board();
 
 ## Example Implementation
 
+Rough implementation with MSVC + SDL2 + SDL2_ttf
+
 ## Resources
 
 [Tetris Guidelines](https://tetris.wiki/Tetris_Guideline)

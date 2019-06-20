@@ -11,7 +11,7 @@
 #include "../../tengine.h"
 
 constexpr SDL_Color WHITE = { 255, 255, 255 };
-constexpr int WINDOW_WIDTH = 640;
+constexpr int WINDOW_WIDTH = 540;
 constexpr int WINDOW_HEIGHT = 480;
 constexpr int BOARD_WIDTH = 10;
 constexpr int BOARD_HEIGHT = 20;
@@ -64,11 +64,21 @@ void render_text(SDL_Renderer *renderer, const char* text, int x, int y) {
   SDL_FreeSurface(surface);
 }
 
-void render_cur_piece(SDL_Renderer *renderer) {
-	SDL_SetRenderDrawColor(renderer, 0, 255, 255, SDL_ALPHA_OPAQUE);
-	SDL_Rect next_rect = { BOARD_TOP_LEFT_X + square_wh * 0, square_wh * 5, square_wh, square_wh };
-	SDL_Rect piece_rects[4] = { next_rect, next_rect, next_rect, next_rect };
+// Renders a piece onto the screen
+// Used for rendering pieces off the board
+void render_piece(SDL_Renderer* renderer, PieceType type, PieceOrientation ori, int x, int y, float scale) {
+  PieceOffsets offsets = get_piece_offsets(type, ori);
+  float wh = scale * square_wh;
+  set_square_color(renderer, type, false);
+	SDL_Rect r1 = { x, y, wh, wh };
+	SDL_Rect r2 = { x + (wh * offsets.ox_1), y + (wh * offsets.oy_1), wh, wh };
+	SDL_Rect r3 = { x + (wh * offsets.ox_2), y + (wh * offsets.oy_2), wh, wh };
+	SDL_Rect r4 = { x + (wh * offsets.ox_3), y + (wh * offsets.oy_3), wh, wh };
+  SDL_Rect piece_rects[4] = { r1, r2, r3, r4 };
 	SDL_RenderFillRects(renderer, piece_rects, 4);
+  SDL_SetRenderDrawColor(renderer, 33, 33, 33, 255);
+  // SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+	SDL_RenderDrawRects(renderer, piece_rects, 4);
 }
 
 void render_board(SDL_Renderer *renderer, TState *t_state) {
@@ -126,10 +136,25 @@ void render_ui(SDL_Renderer* renderer, TState *t_state) {
 	// Draw the hold area
 	SDL_Rect hold_rect = { 45, 45, 75, 75 };
 	SDL_RenderDrawRect(renderer, &hold_rect);
+  if (!t_state->is_initial_swap) {
+    render_piece(renderer, t_state->held_piece.type, PO_ZERO, 45 + 25, 45 + 25, 0.6);
+  }
 
 	// Draw the next piece area
-	SDL_Rect next_rect = { BOARD_TOP_LEFT_X + OUTER_PADDING + square_wh * BOARD_WIDTH, OUTER_PADDING + 30, 75, 250 };
+	SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
+  int next_rect_x = BOARD_TOP_LEFT_X + OUTER_PADDING + square_wh * BOARD_WIDTH;
+  int next_rect_y = OUTER_PADDING + 30;
+	SDL_Rect next_rect = { next_rect_x, next_rect_y, 75, 270 };
 	SDL_RenderDrawRect(renderer, &next_rect);
+  PieceType* next_piece_buf = te_get_next_piece_buf();
+  for (int i = 0; i < 5; i++) {
+    render_piece(renderer, next_piece_buf[i], PO_ZERO,
+      next_rect_x + 25,
+      next_rect_y + 50 * (i+1),
+      0.6
+    );
+  }
+
   // Render text
   render_text(renderer, "HOLD", 45, 30);
   render_text(renderer, "NEXT", BOARD_TOP_LEFT_X + OUTER_PADDING + square_wh * BOARD_WIDTH, 30);
@@ -141,7 +166,7 @@ void render_ui(SDL_Renderer* renderer, TState *t_state) {
 }
 
 void render(SDL_Renderer *renderer, TState *t_state) {
-	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+	SDL_SetRenderDrawColor(renderer, 33, 33, 33, 255);
 	SDL_RenderClear(renderer);
 
 	render_board(renderer, t_state);

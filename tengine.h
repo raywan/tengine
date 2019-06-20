@@ -92,7 +92,6 @@ typedef struct TState {
 
   int cur_bag_idx;
   PieceType cur_piece_idx_in_bag;
-  int next_piece_buf_cur_idx;
   PieceType next_piece_buf[5];
 
   // Frames before locking (committing) the piece if colliding
@@ -120,24 +119,22 @@ void rotate_right();
 
 // System
 void te_init_system();
-
 TState *get_state();
-Board *get_board();
 
+Board *get_board();
 Piece get_current_piece();
 Piece get_next_piece();
-PieceOffsets get_piece_offsets(PieceType type);
+PieceOffsets get_piece_offsets(PieceType type, PieceOrientation orientation);
 void hold(); // Holds the current piece and swaps to held
 void get_ghost(); // Get the location of the current piece if hard dropped
 void commit(); // Commits piece to board
-
 void te_update(int d_frame); // Updates the state of the game
+int te_is_game_over(); // Is the game over?
+int te_get_level(); // Get the current level
+int te_get_score(); // Get the current score
+PieceType *te_get_next_piece_buf(); 
 
-int te_is_game_over();
-int te_get_level();
-int te_get_score();
-
-// Debugging
+// For debugging
 void load_board(int data[220]);
 Board *get_committed_board();
 

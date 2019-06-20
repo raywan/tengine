@@ -38,6 +38,9 @@
 internal TState t_state;
 
 internal PieceType piece_permutations[5040][7];
+internal int __next_piece_buf_cur_idx;
+internal PieceType __next_piece_buf[5];
+
 
 internal int kick_test_table[40][2] = {
   {0,0}, {-1,0}, {-1,1},  {0,-2}, {-1,-2}, // 0 -> R
@@ -312,6 +315,15 @@ internal PieceType get_next_bag_piece() {
   return result;
 }
 
+internal void fill_next_piece_buf() {
+  int count = 0;
+  int idx = __next_piece_buf_cur_idx;
+  while (count < 5) {
+    t_state.next_piece_buf[count] = __next_piece_buf[idx++ % 5];
+    ++count;
+  }
+}
+
 // __SYSTEM
 
 void te_init_system() {
@@ -342,9 +354,10 @@ void te_init_system() {
   t_state.cur_piece_idx_in_bag = 0;
   // Fill up the next_piece_buf
   for (int i = 0; i < 5; i++) {
-    t_state.next_piece_buf[i] = get_next_bag_piece();
+    __next_piece_buf[i] = get_next_bag_piece();
   }
-  t_state.next_piece_buf_cur_idx = 0;
+  __next_piece_buf_cur_idx = 0;
+  fill_next_piece_buf();
 
   t_state.game_over = 0;
   t_state.score = 0;
@@ -361,6 +374,7 @@ void te_init_system() {
   t_state.lock_delay_fr_counter = 0;
   t_state.gravity_fr = 60;
   t_state.gravity_fr_counter = 0;
+
 }
 
 TState *get_state() {
@@ -399,9 +413,11 @@ Piece get_next_piece() {
 
   // Get the next piece from the queue and fill up the spot
   // by drawing from the bag again
-  result.type = t_state.next_piece_buf[t_state.next_piece_buf_cur_idx];
-  t_state.next_piece_buf[t_state.next_piece_buf_cur_idx] = get_next_bag_piece();
-  t_state.next_piece_buf_cur_idx = (t_state.next_piece_buf_cur_idx + 1) % 5;
+  result.type = __next_piece_buf[__next_piece_buf_cur_idx];
+  __next_piece_buf[__next_piece_buf_cur_idx] = get_next_bag_piece();
+  __next_piece_buf_cur_idx = (__next_piece_buf_cur_idx + 1) % 5;
+  // Update the buffer for the client
+  fill_next_piece_buf();
 
   result.orientation = PO_ZERO;
   result.x = DEFAULT_SPAWN_X;
@@ -415,6 +431,18 @@ Piece get_next_piece() {
   return result;
 }
 
+PieceOffsets get_piece_offsets(PieceType type, PieceOrientation orientation) {
+  PieceOffsets result;
+  int offsets = get_raw_offsets(type, orientation);
+  result.ox_1 = offset_code_get_int_value(OFFSET_1_X_CODE(offsets));
+  result.ox_2 = offset_code_get_int_value(OFFSET_2_X_CODE(offsets));
+  result.ox_3 = offset_code_get_int_value(OFFSET_3_X_CODE(offsets));
+  result.oy_1 = offset_code_get_int_value(OFFSET_1_Y_CODE(offsets));
+  result.oy_2 = offset_code_get_int_value(OFFSET_2_Y_CODE(offsets));
+  result.oy_3 = offset_code_get_int_value(OFFSET_3_Y_CODE(offsets));
+  return result;
+}
+
 Piece get_current_piece() {
   Piece result = t_state.cur_piece;
   return result;
@@ -422,14 +450,6 @@ Piece get_current_piece() {
 
 // Get the location of the current piece if hard dropped
 void get_ghost() {
-  int offsets = get_raw_offsets(t_state.cur_piece.type, t_state.cur_piece.orientation);
-  int ox_1 = offset_code_get_int_value(OFFSET_1_X_CODE(offsets));
-  int ox_2 = offset_code_get_int_value(OFFSET_2_X_CODE(offsets));
-  int ox_3 = offset_code_get_int_value(OFFSET_3_X_CODE(offsets));
-  int oy_1 = offset_code_get_int_value(OFFSET_1_Y_CODE(offsets));
-  int oy_2 = offset_code_get_int_value(OFFSET_2_Y_CODE(offsets));
-  int oy_3 = offset_code_get_int_value(OFFSET_3_Y_CODE(offsets));
-
   int ghost_y = 0;
   // TODO(ray): Check starting from the bottom instead. May lead to earlier break
   // Reverse in logic means keep moving up until there are no collisions.
@@ -479,23 +499,6 @@ void te_update(int d_frame) {
   }
 
   get_ghost();
-
-  // TODO(ray): Handle soft drop
-  // If we've been colliding for 30 frames, commit
-#if 0
-  int raw_offsets = get_raw_offsets(t_state.cur_piece.type, t_state.cur_piece.orientation);
-  int ox_1 = offset_code_get_int_value(OFFSET_1_X_CODE(raw_offsets));
-  int ox_2 = offset_code_get_int_value(OFFSET_2_X_CODE(raw_offsets));
-  int ox_3 = offset_code_get_int_value(OFFSET_3_X_CODE(raw_offsets));
-  int oy_1 = offset_code_get_int_value(OFFSET_1_Y_CODE(raw_offsets));
-  int oy_2 = offset_code_get_int_value(OFFSET_2_Y_CODE(raw_offsets));
-  int oy_3 = offset_code_get_int_value(OFFSET_3_Y_CODE(raw_offsets));
-  printf("t_state.cur_piece.x = %d\ncur_piece.y = %d\n", t_state.cur_piece.x, t_state.cur_piece.y);
-  printf("ox_1: %d, ox_2: %d, ox_3: %d\noy_1: %d, oy_2: %d, oy_3: %d\n", ox_1, ox_2, ox_3, oy_1, oy_2, oy_3);
-  printf("ghost_piece.x = %d\nghost_piece.y = %d\n", t_state.ghost_piece.x, t_state.ghost_piece.y);
-  printf("held_piece type %d\n", t_state.held_piece.type);
-  printf("num_lines_cleared: %d\n", t_state.num_lines_cleared);
-#endif
 
   // NOTE(ray): The following operations are for rendering the board
   // Copy the commited_board to the board
@@ -788,6 +791,22 @@ void rotate_right() {
 }
 
 
+int te_is_game_over() {
+  return t_state.game_over;
+}
+
+int te_get_level() {
+  return t_state.level;
+}
+
+int te_get_score() {
+  return t_state.score;
+}
+
+PieceType* te_get_next_piece_buf() {
+  return t_state.next_piece_buf;
+}
+
 void load_board(int data[220]) {
   for (int i = 0; i < t_state.board.height; i++) {
     for (int j = 0; j < t_state.board.width; j++) {
@@ -796,6 +815,3 @@ void load_board(int data[220]) {
   }
 }
 
-int te_is_game_over() {
-  return t_state.game_over;
-}
