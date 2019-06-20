@@ -33,11 +33,14 @@
 #define OFFSET_3_Y_CODE(raw_offsets) (OFFSET_3_HEX(raw_offsets) & OFFSET_Y_MASK)
 
 #define DEFAULT_SPAWN_X 4
-#define DEFAULT_SPAWN_Y 4
+#define DEFAULT_SPAWN_Y 0
 
 internal TState t_state;
 
 internal PieceType piece_permutations[5040][7];
+internal int __next_piece_buf_cur_idx;
+internal PieceType __next_piece_buf[5];
+
 
 internal int kick_test_table[40][2] = {
   {0,0}, {-1,0}, {-1,1},  {0,-2}, {-1,-2}, // 0 -> R
@@ -229,11 +232,15 @@ internal inline int is_board_xy_filled(int x, int y) {
   // Implicitly define that trying to go out of bounds is hitting a filled section
   // printf("is_board_xy_filled(x = %d, y = %d)\n", x, y);
   if (x < 0 || x >= t_state.committed_board.width) {
-    /* puts("FAILED WIDTH CHECK"); */
+     // printf("FAILED WIDTH CHECK: x = %d, width: %d\n", x, t_state.committed_board.width);
     return 1;
-  } else if (y < 0 || y >= t_state.committed_board.height) {
-    /* puts("FAILED HEIGHT CHECK"); */
+  // } else if (y < 0 || y >= t_state.committed_board.height) {
+  } else if (y >= t_state.committed_board.height) {
+     // puts("FAILED HEIGHT CHECK");
     return 1;
+  } else if (y < 0) {
+    // NOTE(ray): Don't consider topping out to be "colliding". Handle this differently.
+    return 0;
   }
   return t_state.committed_board.data[t_state.committed_board.width * y + x] != -1;
 }
@@ -296,30 +303,33 @@ internal void generate_permutations(PieceType arr[7], int k, int *perm_idx) {
     }
   }
 }
+internal PieceType get_next_bag_piece() {
+  if (t_state.cur_piece_idx_in_bag > 6) {
+    // Reset idx
+    t_state.cur_piece_idx_in_bag = 0;
+    // Generate a new bag
+    t_state.cur_bag_idx = (int)(rand() % (5040 - 1));
+  }
+  PieceType result = piece_permutations[t_state.cur_bag_idx][t_state.cur_piece_idx_in_bag];
+  ++t_state.cur_piece_idx_in_bag;
+  return result;
+}
+
+internal void fill_next_piece_buf() {
+  int count = 0;
+  int idx = __next_piece_buf_cur_idx;
+  while (count < 5) {
+    t_state.next_piece_buf[count] = __next_piece_buf[idx++ % 5];
+    ++count;
+  }
+}
 
 // __SYSTEM
 
 void te_init_system() {
-  srand(69);
+  srand(420);
 
-  // Generate permuations
-  int perm_idx = 0;
-  PieceType arr[7] = { PT_I, PT_O, PT_T, PT_S, PT_Z, PT_J, PT_L };
-  generate_permutations(arr, 7, &perm_idx);
-  // Initially pick a random bag
-  t_state.cur_bag_idx = (int) (rand() % (5040-1));
-  t_state.cur_piece_idx_in_bag = 0;
-
-  t_state.score = 0;
-  t_state.combo = -1;
-  t_state.level = 1;
-  t_state.num_lines_cleared = 0;
-
-  t_state.has_swapped = 0;
-  t_state.is_initial_swap = 1;
-
-  t_state.cur_piece = get_next_piece();
-
+  // Allocate memory for board data
   t_state.board.width = WIDTH;
   t_state.board.height = HEIGHT;
   t_state.board.data = (int *) malloc(sizeof(int) * WIDTH * HEIGHT);
@@ -334,6 +344,37 @@ void te_init_system() {
       t_state.committed_board.data[t_state.board.width * i + j] = -1;
     }
   }
+
+  // Generate permuations
+  int perm_idx = 0;
+  PieceType arr[7] = { PT_I, PT_O, PT_T, PT_S, PT_Z, PT_J, PT_L };
+  generate_permutations(arr, 7, &perm_idx);
+  // Initially pick a random bag
+  t_state.cur_bag_idx = (int) (rand() % (5040-1));
+  t_state.cur_piece_idx_in_bag = 0;
+  // Fill up the next_piece_buf
+  for (int i = 0; i < 5; i++) {
+    __next_piece_buf[i] = get_next_bag_piece();
+  }
+  __next_piece_buf_cur_idx = 0;
+  fill_next_piece_buf();
+
+  t_state.game_over = 0;
+  t_state.score = 0;
+  t_state.combo = -1;
+  t_state.level = 1;
+  t_state.num_lines_cleared = 0;
+
+  t_state.has_swapped = 0;
+  t_state.is_initial_swap = 1;
+
+  t_state.cur_piece = get_next_piece();
+
+  t_state.lock_delay_fr = 30;
+  t_state.lock_delay_fr_counter = 0;
+  t_state.gravity_fr = 60;
+  t_state.gravity_fr_counter = 0;
+
 }
 
 TState *get_state() {
@@ -352,6 +393,8 @@ Board *get_committed_board() {
 void hold() {
   if (t_state.is_initial_swap) {
     t_state.held_piece = t_state.cur_piece;
+    // Reset the orientation
+    t_state.held_piece.orientation = PO_ZERO;
     t_state.cur_piece = get_next_piece();
     t_state.has_swapped = 1;
     t_state.is_initial_swap = 0;
@@ -366,21 +409,41 @@ void hold() {
 }
 
 Piece get_next_piece() {
-  if (t_state.cur_piece_idx_in_bag > 6) {
-    // Reset idx
-    t_state.cur_piece_idx_in_bag = 0;
-    // Generate a new bag
-    t_state.cur_bag_idx = (int) (rand() % (5040-1));
-  }
-
-  // Get the next piece in the bag
   Piece result;
-  result.type = piece_permutations[t_state.cur_bag_idx][t_state.cur_piece_idx_in_bag];
-  // result.type = PT_T;
+
+  // Get the next piece from the queue and fill up the spot
+  // by drawing from the bag again
+  result.type = __next_piece_buf[__next_piece_buf_cur_idx];
+  __next_piece_buf[__next_piece_buf_cur_idx] = get_next_bag_piece();
+  __next_piece_buf_cur_idx = (__next_piece_buf_cur_idx + 1) % 5;
+  // Update the buffer for the client
+  fill_next_piece_buf();
+
   result.orientation = PO_ZERO;
   result.x = DEFAULT_SPAWN_X;
   result.y = DEFAULT_SPAWN_Y;
-  ++t_state.cur_piece_idx_in_bag;
+  // Reset lock delay timer
+  t_state.lock_delay_fr_counter = 0;
+  // Check if we're spawning on any filled pieces
+  if (will_piece_collide(result.type, result.orientation, result.x, result.y)) {
+    t_state.game_over = 1;
+  }
+  return result;
+}
+
+PieceType* te_get_next_piece_buf() {
+  return t_state.next_piece_buf;
+}
+
+PieceOffsets get_piece_offsets(PieceType type, PieceOrientation orientation) {
+  PieceOffsets result;
+  int offsets = get_raw_offsets(type, orientation);
+  result.ox_1 = offset_code_get_int_value(OFFSET_1_X_CODE(offsets));
+  result.ox_2 = offset_code_get_int_value(OFFSET_2_X_CODE(offsets));
+  result.ox_3 = offset_code_get_int_value(OFFSET_3_X_CODE(offsets));
+  result.oy_1 = offset_code_get_int_value(OFFSET_1_Y_CODE(offsets));
+  result.oy_2 = offset_code_get_int_value(OFFSET_2_Y_CODE(offsets));
+  result.oy_3 = offset_code_get_int_value(OFFSET_3_Y_CODE(offsets));
   return result;
 }
 
@@ -391,22 +454,11 @@ Piece get_current_piece() {
 
 // Get the location of the current piece if hard dropped
 void get_ghost() {
-  int offsets = get_raw_offsets(t_state.cur_piece.type, t_state.cur_piece.orientation);
-  int ox_1 = offset_code_get_int_value(OFFSET_1_X_CODE(offsets));
-  int ox_2 = offset_code_get_int_value(OFFSET_2_X_CODE(offsets));
-  int ox_3 = offset_code_get_int_value(OFFSET_3_X_CODE(offsets));
-  int oy_1 = offset_code_get_int_value(OFFSET_1_Y_CODE(offsets));
-  int oy_2 = offset_code_get_int_value(OFFSET_2_Y_CODE(offsets));
-  int oy_3 = offset_code_get_int_value(OFFSET_3_Y_CODE(offsets));
-
-  int ghost_y;
+  int ghost_y = 0;
   // TODO(ray): Check starting from the bottom instead. May lead to earlier break
   // Reverse in logic means keep moving up until there are no collisions.
   for (int i = 0; i < HEIGHT - t_state.cur_piece.y; i++) {
-    if (is_board_xy_filled(t_state.cur_piece.x, t_state.cur_piece.y + i) ||
-        is_board_xy_filled(t_state.cur_piece.x + ox_1, t_state.cur_piece.y + i + oy_1) ||
-        is_board_xy_filled(t_state.cur_piece.x + ox_2, t_state.cur_piece.y + i + oy_2) ||
-        is_board_xy_filled(t_state.cur_piece.x + ox_3, t_state.cur_piece.y + i + oy_3)) {
+    if (will_piece_collide(t_state.cur_piece.type, t_state.cur_piece.orientation, t_state.cur_piece.x, t_state.cur_piece.y + i)) {
       break;
     }
     ghost_y = t_state.cur_piece.y + i;
@@ -418,7 +470,10 @@ void get_ghost() {
 }
 
 // Updates the state of the game
-void te_update(int dt_ms) {
+void te_update(int d_frame) {
+
+  if (t_state.game_over) return;
+
   // Clear the board in preparation for next render
   for (int i = 0; i < t_state.board.height; i++) {
     for (int j = 0; j < t_state.board.width; j++) {
@@ -426,38 +481,50 @@ void te_update(int dt_ms) {
     }
   }
 
-  // move_down();
+  // Try to move down
+  if (will_piece_collide(t_state.cur_piece.type, t_state.cur_piece.orientation, t_state.cur_piece.x, t_state.cur_piece.y + 1)) {
+    // Check lock delay
+    if (t_state.lock_delay_fr_counter >= t_state.lock_delay_fr) {
+      // Reset counter
+      t_state.lock_delay_fr_counter = 0;
+      // Lock
+      hard_drop();
+    } else {
+      ++t_state.lock_delay_fr_counter;
+    }
+  }
+  else {
+    if (t_state.gravity_fr_counter >= t_state.gravity_fr) {
+      t_state.gravity_fr_counter = 0;
+      move_down();
+    } else {
+      ++t_state.gravity_fr_counter;
+    }
+  }
 
   get_ghost();
-
-  // TODO(ray): Handle soft drop
-  // If we've been colliding for 30 frames, commit
-#if 0
-  int raw_offsets = get_raw_offsets(t_state.cur_piece.type, t_state.cur_piece.orientation);
-  int ox_1 = offset_code_get_int_value(OFFSET_1_X_CODE(raw_offsets));
-  int ox_2 = offset_code_get_int_value(OFFSET_2_X_CODE(raw_offsets));
-  int ox_3 = offset_code_get_int_value(OFFSET_3_X_CODE(raw_offsets));
-  int oy_1 = offset_code_get_int_value(OFFSET_1_Y_CODE(raw_offsets));
-  int oy_2 = offset_code_get_int_value(OFFSET_2_Y_CODE(raw_offsets));
-  int oy_3 = offset_code_get_int_value(OFFSET_3_Y_CODE(raw_offsets));
-  printf("t_state.cur_piece.x = %d\ncur_piece.y = %d\n", t_state.cur_piece.x, t_state.cur_piece.y);
-  printf("ox_1: %d, ox_2: %d, ox_3: %d\noy_1: %d, oy_2: %d, oy_3: %d\n", ox_1, ox_2, ox_3, oy_1, oy_2, oy_3);
-  printf("ghost_piece.x = %d\nghost_piece.y = %d\n", t_state.ghost_piece.x, t_state.ghost_piece.y);
-  printf("held_piece type %d\n", t_state.held_piece.type);
-  printf("num_lines_cleared: %d\n", t_state.num_lines_cleared);
-#endif
 
   // NOTE(ray): The following operations are for rendering the board
   // Copy the commited_board to the board
   memcpy(t_state.board.data, t_state.committed_board.data, sizeof(int) * WIDTH * HEIGHT);
   // Set the ghost
-  set_piece(&t_state.board, t_state.ghost_piece, -2);
+  set_piece(&t_state.board, t_state.ghost_piece, PT_GHOST);
   // Set the piece
   set_piece(&t_state.board, t_state.cur_piece, t_state.cur_piece.type);
 }
 
 // Commits piece to board
 void commit() {
+
+  // Check for partial top-out
+  int raw_offsets = get_raw_offsets(t_state.cur_piece.type, t_state.cur_piece.orientation);
+  int oy_1 = offset_code_get_int_value(OFFSET_1_Y_CODE(raw_offsets));
+  int oy_2 = offset_code_get_int_value(OFFSET_2_Y_CODE(raw_offsets));
+  int oy_3 = offset_code_get_int_value(OFFSET_3_Y_CODE(raw_offsets));
+  if ((t_state.cur_piece.y < 0) || (t_state.cur_piece.y + oy_1 < 0) || (t_state.cur_piece.y + oy_2 < 0) || (t_state.cur_piece.y + oy_3 < 0)) {
+    t_state.game_over = 1;
+  }
+
   // Write the piece to the committed board
   set_piece(&t_state.committed_board, t_state.cur_piece, t_state.cur_piece.type);
 
@@ -485,6 +552,7 @@ void commit() {
 
   if (num_rows_filled > 0) {
     t_state.num_lines_cleared += num_rows_filled;
+    printf("num_lines_cleared: %d\n", t_state.num_lines_cleared);
     // Compact starting from the top down
     for (int i = num_rows_filled-1; i >= 0; i--) {
       // Start from the cleared row and start moving stuff down
@@ -509,8 +577,18 @@ void commit() {
     } else if (num_rows_filled == 4) {
       t_state.clear_type = LCT_TETRIS;
     }
+
+    // Compute the score
+    t_state.score += score_table[t_state.clear_type] * t_state.level;
+
+    printf("score: %d\n", t_state.score);
   }
 
+  // Increase the level if applicable
+  if (t_state.num_lines_cleared == t_state.level * 10) {
+    ++t_state.level;
+    printf("level: %d\n", t_state.level);
+  }
 
   // Grab the next piece
   t_state.cur_piece = get_next_piece();
@@ -666,7 +744,7 @@ internal void kick_test(PieceOrientation from_ori, PieceOrientation to_ori) {
     }
 
     if (!will_piece_collide(t_state.cur_piece.type, to_ori, potential_x, potential_y)) {
-      printf("SUCCESS KICK v: %d i: %d\n", kick_table_vidx, i);
+      // printf("SUCCESS KICK v: %d i: %d\n", kick_table_vidx, i);
       t_state.cur_piece.x = potential_x;
       t_state.cur_piece.y = potential_y;
       t_state.cur_piece.orientation = to_ori;
@@ -676,7 +754,7 @@ internal void kick_test(PieceOrientation from_ori, PieceOrientation to_ori) {
 }
 
 void rotate_left() {
-  PieceOrientation to_ori;
+  PieceOrientation to_ori = PO_ZERO;
   switch (t_state.cur_piece.orientation) {
     case PO_ZERO:
       to_ori = PO_LEFT;
@@ -697,7 +775,7 @@ void rotate_left() {
 }
 
 void rotate_right() {
-  PieceOrientation to_ori;
+  PieceOrientation to_ori = PO_ZERO;
   switch (t_state.cur_piece.orientation) {
     case PO_ZERO:
       to_ori = PO_RIGHT;
@@ -717,6 +795,18 @@ void rotate_right() {
 }
 
 
+int te_is_game_over() {
+  return t_state.game_over;
+}
+
+int te_get_level() {
+  return t_state.level;
+}
+
+int te_get_score() {
+  return t_state.score;
+}
+
 void load_board(int data[220]) {
   for (int i = 0; i < t_state.board.height; i++) {
     for (int j = 0; j < t_state.board.width; j++) {
@@ -724,3 +814,4 @@ void load_board(int data[220]) {
     }
   }
 }
+
