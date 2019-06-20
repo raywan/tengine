@@ -124,6 +124,7 @@ TState *get_state();
 Board *get_board();
 Piece get_current_piece();
 Piece get_next_piece();
+PieceType *te_get_next_piece_buf();
 PieceOffsets get_piece_offsets(PieceType type, PieceOrientation orientation);
 void hold(); // Holds the current piece and swaps to held
 void get_ghost(); // Get the location of the current piece if hard dropped
@@ -132,7 +133,6 @@ void te_update(int d_frame); // Updates the state of the game
 int te_is_game_over(); // Is the game over?
 int te_get_level(); // Get the current level
 int te_get_score(); // Get the current score
-PieceType *te_get_next_piece_buf(); 
 
 // For debugging
 void load_board(int data[220]);

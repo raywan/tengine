@@ -431,6 +431,10 @@ Piece get_next_piece() {
   return result;
 }
 
+PieceType* te_get_next_piece_buf() {
+  return t_state.next_piece_buf;
+}
+
 PieceOffsets get_piece_offsets(PieceType type, PieceOrientation orientation) {
   PieceOffsets result;
   int offsets = get_raw_offsets(type, orientation);
@@ -801,10 +805,6 @@ int te_get_level() {
 
 int te_get_score() {
   return t_state.score;
-}
-
-PieceType* te_get_next_piece_buf() {
-  return t_state.next_piece_buf;
 }
 
 void load_board(int data[220]) {
