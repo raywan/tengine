@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-#define TENGINE_DEBUG
-
 #define WIDTH 10
 #define HEIGHT 20
 #define HEIGHT_PADDING 0
@@ -33,7 +31,6 @@ typedef enum PieceType {
   PT_GHOST = 1 << 10,
 } PieceType;
 
-// TODO(ray): Complete this enumeration
 typedef enum LineClearType {
   LCT_SINGLE,
   LCT_DOUBLE,
@@ -46,7 +43,7 @@ typedef enum LineClearType {
   LCT_T_SPIN_DOUBLE,
   LCT_T_SPIN_MINI_DOUBLE,
   LCT_T_SPIN_TRIPLE,
-} RowClearType;
+} LineClearType;
 
 typedef struct Piece {
   PieceType type;
@@ -74,8 +71,8 @@ typedef struct TState {
   // When lines cleared reaches current level times 10, increase level by 1
   uint32_t level;
   uint32_t num_lines_cleared;
-  RowClearType clear_type;
-  RowClearType last_clear_type;
+  LineClearType clear_type;
+  LineClearType last_clear_type;
 
   Piece cur_piece;
   Piece ghost_piece;
@@ -84,7 +81,7 @@ typedef struct TState {
   char is_initial_swap;
 
   // Board used to render. Combines data from committed_board, cur_piece and ghost_piece
-  // NOTE(ray): Semantically, we're treating row 22 in the array to be the bottom
+  // NOTE(ray): Semantically, we're treating row 20 in the array to be the bottom
   // of the game board. Might be better to change this later.
   Board board;
   // Holds all committed pieces on the board
@@ -110,33 +107,64 @@ extern "C" {
 #endif
 
 // Movement
-void move_left();
-void move_right();
-void move_down();
-void hard_drop();
-void rotate_left();
-void rotate_right();
+void te_move_left();
+void te_move_right();
+void te_move_down();
+void te_hard_drop();
+void te_rotate_left();
+void te_rotate_right();
 
-// System
+// Initialize the system
 void te_init_system();
-TState *get_state();
 
-Board *get_board();
-Piece get_current_piece();
-Piece get_next_piece();
-PieceType *te_get_next_piece_buf();
-PieceOffsets get_piece_offsets(PieceType type, PieceOrientation orientation);
-void hold(); // Holds the current piece and swaps to held
-void get_ghost(); // Get the location of the current piece if hard dropped
-void commit(); // Commits piece to board
-void te_update(int d_frame); // Updates the state of the game
-int te_is_game_over(); // Is the game over?
-int te_get_level(); // Get the current level
-int te_get_score(); // Get the current score
+// Free resources allocated
+void te_destroy_system();
 
-// For debugging
-void load_board(int data[220]);
-Board *get_committed_board();
+// Get the game state
+TState *te_get_state();
+
+// Get the board, used for rendering
+Board *te_get_board();
+
+// Get the value of the board at index i and j
+int te_get_board_xy(Board *b, int x, int y);
+
+// Get the current piece
+Piece te_get_current_piece();
+
+// Get the buffer to the next piece buffer
+// Used for rendering the next piece list
+// Returns a pointer to the start of the buffer and length in out_buf_length
+PieceType *te_get_next_piece_buf(int *out_buf_len);
+
+// Get the offsets for a piece, that can be used to render pieces individually
+PieceOffsets te_get_piece_offsets(PieceType type, PieceOrientation orientation);
+
+// Holds the current piece and swaps to held
+void te_hold();
+
+// Get the location of the current piece if hard dropped
+void te_get_ghost();
+
+// Commits piece to board
+void te_commit();
+
+// Updates the state of the game
+void te_update(int d_frame);
+
+// Did we top out?
+int te_is_game_over();
+
+// Get the current level
+int te_get_level();
+
+// Get the current score
+int te_get_score();
+
+// The following are for debugging, you probably won't use these
+void te_load_board(int data[220]);
+Board *te_get_committed_board();
+Piece te_get_next_piece();
 
 #ifdef __cplusplus
 }

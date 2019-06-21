@@ -6,6 +6,15 @@ Bring your own input handling and rendering. See [Examples](#example-implementat
 
 Not 100% complete but deciding to open source it.
 
+## Table of Contents
+
+- [Features](#features)
+- [TODO](#todo)
+- [API](#api)
+- [Example Implementation](#example-implementation)
+- [Resources](#resources)
+- [License](#license)
+
 ## Features
 
 - [x] I, O, T, S, Z, J, L pieces
@@ -25,49 +34,83 @@ Not 100% complete but deciding to open source it.
 ## TODO
 
 - [ ] **CLEAN UP CODE/DOCUMENTATION/Better implementation of some things**
-- [ ] T-spin condition check
+- [ ] T-spin condition check (for scoring). Currently counts as normal single, double or triple.
 - [ ] Combos/Back-to-back
 - [ ] Use a configuration struct to pass into `te_init_system()`
 - [ ] Delay Auto Shift (DAS)
 - [ ] Time-based update function (currently frame based)
 
-## Data Structures
-
 ## API
+
+Please refer to `tengine.h` for the typedefs.
+
 
 ```c
 // Movement
-void move_left();
-void move_right();
-void move_down();
-void hard_drop();
-void rotate_left();
-void rotate_right();
+void te_move_left();
+void te_move_right();
+void te_move_down();
+void te_hard_drop();
+void te_rotate_left();
+void te_rotate_right();
 
-// System
+// Initialize the system
 void te_init_system();
-TState *get_state();
-Board *get_board();
-Piece get_current_piece();
-Piece get_next_piece();
-PieceType *te_get_next_piece_buf();
-PieceOffsets get_piece_offsets(PieceType type, PieceOrientation orientation);
-void hold(); // Holds the current piece and swaps to held
-void get_ghost(); // Get the location of the current piece if hard dropped
-void commit(); // Commits piece to board
-void te_update(int d_frame); // Updates the state of the game
-int te_is_game_over(); // Is the game over?
-int te_get_level(); // Get the current level
-int te_get_score(); // Get the current score
 
-// For debugging
-void load_board(int data[220]);
-Board *get_committed_board();
+// Free resources allocated
+void te_destroy_system();
+
+// Get the game state
+TState *te_get_state();
+
+// Get the board, used for rendering
+Board *te_get_board();
+
+// Get the value of the board at index i and j
+int te_get_board_xy(Board *b, int x, int y);
+
+// Get the current piece
+Piece te_get_current_piece();
+
+// Get the buffer to the next piece buffer
+// Used for rendering the next piece list
+// Returns a pointer to the start of the buffer and length in out_buf_length
+PieceType *te_get_next_piece_buf(int *out_buf_len);
+
+// Get the offsets for a piece, that can be used to render pieces individually
+PieceOffsets te_get_piece_offsets(PieceType type, PieceOrientation orientation);
+
+// Holds the current piece and swaps to held
+void te_hold();
+
+// Get the location of the current piece if hard dropped
+void te_get_ghost();
+
+// Commits piece to board
+void te_commit();
+
+// Updates the state of the game
+void te_update(int d_frame);
+
+// Did we top out?
+int te_is_game_over();
+
+// Get the current level
+int te_get_level();
+
+// Get the current score
+int te_get_score();
+
+// The following are for debugging, you probably won't use these
+void te_load_board(int data[220]);
+Board *te_get_committed_board();
+Piece te_get_next_piece();
 ```
 
 ## Example Implementation
 
 Rough implementation with C++/SDL2/SDL2_ttf compiled using MSVC. Yes, I know the UI sucks.
+
 ![screenshot of gameplay](examples/screenshot.png)
 ![demo gif of gameplay](examples/demo.gif)
 

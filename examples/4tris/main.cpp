@@ -67,7 +67,7 @@ void render_text(SDL_Renderer *renderer, const char* text, int x, int y) {
 // Renders a piece onto the screen
 // Used for rendering pieces off the board
 void render_piece(SDL_Renderer* renderer, PieceType type, PieceOrientation ori, int x, int y, float scale) {
-  PieceOffsets offsets = get_piece_offsets(type, ori);
+  PieceOffsets offsets = te_get_piece_offsets(type, ori);
   float wh = scale * square_wh;
   set_square_color(renderer, type, false);
 	SDL_Rect r1 = { x, y, wh, wh };
@@ -82,11 +82,11 @@ void render_piece(SDL_Renderer* renderer, PieceType type, PieceOrientation ori, 
 }
 
 void render_board(SDL_Renderer *renderer, TState *t_state) {
-  Board *board = get_board();
+  Board *board = te_get_board();
   std::unordered_map<PieceType, std::vector<SDL_Rect>> rect_map;
   for (int i = 0; i < board->height; i++) {
     for (int j = 0; j < board->width; j++) {
-			if (board->data[board->width * i + j] != -1) {
+			if (te_get_board_xy(board, j, i) != -1) {
 				SDL_Rect rect = { BOARD_TOP_LEFT_X + square_wh * j, BOARD_TOP_Y + square_wh * i, square_wh, square_wh };
         PieceType key = (PieceType) board->data[board->width * i + j];
         if (rect_map.find(key) != rect_map.end()) {
@@ -146,8 +146,9 @@ void render_ui(SDL_Renderer* renderer, TState *t_state) {
   int next_rect_y = OUTER_PADDING + 30;
 	SDL_Rect next_rect = { next_rect_x, next_rect_y, 75, 270 };
 	SDL_RenderDrawRect(renderer, &next_rect);
-  PieceType* next_piece_buf = te_get_next_piece_buf();
-  for (int i = 0; i < 5; i++) {
+  int buf_len = 0;
+  PieceType* next_piece_buf = te_get_next_piece_buf(&buf_len);
+  for (int i = 0; i < buf_len; i++) {
     render_piece(renderer, next_piece_buf[i], PO_ZERO,
       next_rect_x + 25,
       next_rect_y + 50 * (i+1),
@@ -161,6 +162,8 @@ void render_ui(SDL_Renderer* renderer, TState *t_state) {
   // Score/Level
   render_text(renderer, "LEVEL", 45, 200);
   render_text(renderer, std::to_string(t_state->level).c_str(), 45, 215);
+  render_text(renderer, "LINES", 45, 250);
+  render_text(renderer, std::to_string(t_state->num_lines_cleared).c_str(), 45, 265);
   render_text(renderer, "SCORE", 45, 300);
   render_text(renderer, std::to_string(t_state->score).c_str(), 45, 315);
 }
@@ -188,7 +191,7 @@ void update(int frames) {
 int main(int argc, char *argv[]) {
 	puts("Hello");
 	te_init_system();
-	TState *t_state = get_state();
+	TState *t_state = te_get_state();
 	printf("w: %d, h: %d\n", t_state->board.width, t_state->board.height);
 
 	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -231,28 +234,28 @@ int main(int argc, char *argv[]) {
             case SDLK_ESCAPE:
               quit = true;
             case SDLK_LEFT:
-              move_left();
+              te_move_left();
               break;
             case SDLK_RIGHT:
-              move_right();
+              te_move_right();
               break;
             case SDLK_DOWN:
-              move_down();
+              te_move_down();
               break;
             case SDLK_SPACE:
-              hard_drop();
+              te_hard_drop();
               break;
             case SDLK_z:
-              rotate_left();
+              te_rotate_left();
               break;
             case SDLK_x:
-              rotate_right();
+              te_rotate_right();
               break;
             case SDLK_r:
               te_init_system();
               break;
             case SDLK_LSHIFT:
-              hold();
+              te_hold();
               break;
           }
 					break;
@@ -281,6 +284,7 @@ int main(int argc, char *argv[]) {
 		++frames;
 	}
 
+  te_destroy_system();
   TTF_CloseFont(font);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
